@@ -54,7 +54,8 @@ export default function MuscleReadinessWidget({
   };
 
   const getMuscleGroupName = (group: string) => {
-    const key = `activities.muscleGroups.${group}`;
+    const normalized = group === "quads" ? "quadriceps" : group;
+    const key = `activities.muscleGroups.${normalized}`;
     const translated = t(key);
     return translated !== key ? translated : group;
   };

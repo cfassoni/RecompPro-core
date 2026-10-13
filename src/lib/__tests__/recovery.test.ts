@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calculateAgeInYears,
   mapToMuscleGroupKey,
+  inferMuscleGroup,
   calculateRecoveryWindowHours,
   computeReadinessSummary,
 } from "../exercises/recovery";
@@ -18,7 +19,7 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
     });
   });
 
-  describe("mapToMuscleGroupKey", () => {
+  describe("mapToMuscleGroupKey & inferMuscleGroup", () => {
     it("should map Hevy raw muscle groups to the 6 core categories", () => {
       expect(mapToMuscleGroupKey("Chest")).toBe("chest");
       expect(mapToMuscleGroupKey("Lats")).toBe("back");
@@ -29,6 +30,22 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
       expect(mapToMuscleGroupKey("Biceps")).toBe("arms");
       expect(mapToMuscleGroupKey("Triceps")).toBe("arms");
       expect(mapToMuscleGroupKey("Unknown")).toBeNull();
+    });
+
+    it("should infer muscle groups from exercise titles when template is missing (bilingual PT/EN)", () => {
+      expect(inferMuscleGroup(null, "Supino Reto (Barra)")).toBe("chest");
+      expect(inferMuscleGroup(null, "Incline Dumbbell Bench Press")).toBe("chest");
+      expect(inferMuscleGroup(null, "Remada Curvada")).toBe("back");
+      expect(inferMuscleGroup(null, "Lat Pulldown")).toBe("back");
+      expect(inferMuscleGroup(null, "Agachamento Livre")).toBe("quads");
+      expect(inferMuscleGroup(null, "Leg Press 45º")).toBe("quads");
+      expect(inferMuscleGroup(null, "Cadeira Flexora")).toBe("hamstrings_glutes");
+      expect(inferMuscleGroup(null, "Romanian Deadlift (RDL)")).toBe("hamstrings_glutes");
+      expect(inferMuscleGroup(null, "Desenvolvimento Halteres")).toBe("shoulders");
+      expect(inferMuscleGroup(null, "Overhead Press")).toBe("shoulders");
+      expect(inferMuscleGroup(null, "Rosca Direta")).toBe("arms");
+      expect(inferMuscleGroup(null, "Tríceps Corda")).toBe("arms");
+      expect(inferMuscleGroup(null, "Exercício Genérico")).toBeNull();
     });
   });
 
@@ -68,9 +85,9 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
             {
               primaryMuscleGroup: "Chest",
               sets: [
-                { type: "normal", reps: 10, rpe: 8 },
-                { type: "normal", reps: 8, rpe: 8.5 },
-                { type: "normal", reps: 8, rpe: 9 },
+                { type: "normal", reps: 10, rpe: 8, weightKg: 80 },
+                { type: "normal", reps: 8, rpe: 8.5, weightKg: 85 },
+                { type: "normal", reps: 8, rpe: 9, weightKg: 90 },
               ],
             },
           ],
@@ -81,8 +98,8 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
             {
               primaryMuscleGroup: "Quadriceps",
               sets: [
-                { type: "normal", reps: 10, rpe: 8 },
-                { type: "normal", reps: 8, rpe: 8 },
+                { type: "normal", reps: 10, rpe: 8, weightKg: 100 },
+                { type: "normal", reps: 8, rpe: 8, weightKg: 100 },
               ],
             },
           ],
@@ -97,10 +114,14 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
       // Chest was trained 24 hours ago with high RPE, should be recovering
       expect(summary.muscles.chest.status).toBe("recovering");
       expect(summary.muscles.chest.hoursElapsed).toBe(24);
+      expect(summary.muscles.chest.lastSessionVolumeKg).toBe(2200); // 10*80 + 8*85 + 8*90 = 800 + 680 + 720
+      expect(summary.muscles.chest.lastSessionSets).toBe(3);
 
       // Quads were trained 72 hours ago, should be 100% ready
       expect(summary.muscles.quads.status).toBe("ready");
       expect(summary.muscles.quads.readinessPercentage).toBe(100);
+      expect(summary.muscles.quads.lastSessionVolumeKg).toBe(1800); // 10*100 + 8*100
+
 
       // Back was never trained in history, should be ready
       expect(summary.muscles.back.status).toBe("ready");

@@ -28,6 +28,7 @@ export interface MuscleRecoveryState {
   readinessPercentage: number; // 0 to 100
   status: "ready" | "recovering" | "exhausted";
   lastSessionSets: number;
+  lastSessionVolumeKg: number;
   lastSessionAvgRpe: number | null;
 }
 
@@ -111,6 +112,153 @@ export function mapToMuscleGroupKey(rawMuscleGroup?: string | null): MuscleGroup
 }
 
 /**
+ * Resolves a muscle group from either a raw muscle group string or an exercise title.
+ * Provides resilient bilingual (English/Portuguese) keyword matching when templates are unlinked.
+ */
+export function inferMuscleGroup(
+  rawMuscleGroup?: string | null,
+  title?: string | null
+): MuscleGroupKey | null {
+  const fromGroup = mapToMuscleGroupKey(rawMuscleGroup);
+  if (fromGroup) return fromGroup;
+
+  if (!title) return null;
+  const t = title.toLowerCase();
+
+  // Chest / Peito
+  if (
+    t.includes("chest") ||
+    t.includes("peito") ||
+    t.includes("bench") ||
+    t.includes("supino") ||
+    t.includes("pec") ||
+    t.includes("crossover") ||
+    t.includes("cross over") ||
+    t.includes("flexão") ||
+    t.includes("push up") ||
+    t.includes("pushup") ||
+    t.includes("fly") ||
+    t.includes("crucifixo") ||
+    t.includes("dips") ||
+    t.includes("mergulho")
+  ) {
+    return "chest";
+  }
+
+  // Hamstrings & Glutes / Posteriores & Glúteos / Panturrilha
+  if (
+    t.includes("hamstring") ||
+    t.includes("posterior") ||
+    t.includes("glute") ||
+    t.includes("glúteo") ||
+    t.includes("stiff") ||
+    t.includes("rdl") ||
+    t.includes("romanian") ||
+    t.includes("flexora") ||
+    t.includes("curl leg") ||
+    t.includes("leg curl") ||
+    t.includes("hip thrust") ||
+    t.includes("elevação pélvica") ||
+    t.includes("pelvic") ||
+    t.includes("calf") ||
+    t.includes("calves") ||
+    t.includes("panturrilha") ||
+    t.includes("gêmeos")
+  ) {
+    return "hamstrings_glutes";
+  }
+
+  // Back / Costas
+  if (
+    t.includes("back") ||
+    t.includes("costas") ||
+    t.includes("lat") ||
+    t.includes("puxada") ||
+    t.includes("pulldown") ||
+    t.includes("pull down") ||
+    t.includes("remada") ||
+    t.includes("row") ||
+    t.includes("deadlift") ||
+    t.includes("levantamento terra") ||
+    t.includes("terra") ||
+    t.includes("pull up") ||
+    t.includes("pullup") ||
+    t.includes("chin up") ||
+    t.includes("chinup") ||
+    t.includes("trapezius") ||
+    t.includes("trapézio") ||
+    t.includes("dorsal") ||
+    t.includes("pullover")
+  ) {
+    return "back";
+  }
+
+  // Quadriceps / Pernas
+  if (
+    t.includes("quad") ||
+    t.includes("squat") ||
+    t.includes("agachamento") ||
+    t.includes("leg press") ||
+    t.includes("legpress") ||
+    t.includes("extensora") ||
+    t.includes("extension") ||
+    t.includes("lunge") ||
+    t.includes("afundo") ||
+    t.includes("passada") ||
+    t.includes("hack") ||
+    t.includes("sissy") ||
+    t.includes("búlgaro") ||
+    t.includes("bulgarian")
+  ) {
+    return "quads";
+  }
+
+  // Shoulders / Ombros
+  if (
+    t.includes("shoulder") ||
+    t.includes("ombro") ||
+    t.includes("deltoid") ||
+    t.includes("delt") ||
+    t.includes("overhead") ||
+    t.includes("desenvolvimento") ||
+    t.includes("lateral raise") ||
+    t.includes("elevação lateral") ||
+    t.includes("front raise") ||
+    t.includes("elevação frontal") ||
+    t.includes("face pull") ||
+    t.includes("arnold") ||
+    t.includes("militar") ||
+    t.includes("military")
+  ) {
+    return "shoulders";
+  }
+
+  // Arms / Braços (Biceps / Triceps / Antebraço)
+  if (
+    t.includes("bicep") ||
+    t.includes("bíceps") ||
+    t.includes("tricep") ||
+    t.includes("tríceps") ||
+    t.includes("arm") ||
+    t.includes("braço") ||
+    t.includes("rosca") ||
+    t.includes("curl") ||
+    t.includes("skull crusher") ||
+    t.includes("testa") ||
+    t.includes("francês") ||
+    t.includes("pushdown") ||
+    t.includes("corda") ||
+    t.includes("coice") ||
+    t.includes("antebraço") ||
+    t.includes("forearm")
+  ) {
+    return "arms";
+  }
+
+  return null;
+}
+
+/**
  * Calculates dynamic recovery window in hours (between 24h and 72h) based on:
  * - Effective working sets
  * - Average RPE
@@ -151,11 +299,13 @@ export function calculateRecoveryWindowHours(
 export interface WorkoutHistoryItemForRecovery {
   endTime: Date;
   exercises: Array<{
+    title?: string | null;
     primaryMuscleGroup?: string | null;
     sets: Array<{
       type?: string | null;
       rpe?: number | null;
       reps?: number | null;
+      weightKg?: number | null;
     }>;
   }>;
 }
@@ -201,18 +351,23 @@ export function computeReadinessSummary(
     let setsCount = 0;
     let totalRpe = 0;
     let setsWithRpe = 0;
+    let sessionVolumeKg = 0;
 
     for (const w of sortedWorkouts) {
       let groupSetsInWorkout = 0;
       let groupRpeInWorkout = 0;
       let groupRpeCountInWorkout = 0;
+      let groupVolumeInWorkout = 0;
 
       for (const ex of w.exercises) {
-        const mapped = mapToMuscleGroupKey(ex.primaryMuscleGroup);
+        const mapped = inferMuscleGroup(ex.primaryMuscleGroup, ex.title);
         if (mapped === group) {
           for (const set of ex.sets) {
             if (set.type === "warmup") continue;
             groupSetsInWorkout++;
+            if (set.weightKg && set.reps) {
+              groupVolumeInWorkout += set.weightKg * set.reps;
+            }
             if (set.rpe && set.rpe > 0) {
               groupRpeInWorkout += set.rpe;
               groupRpeCountInWorkout++;
@@ -226,6 +381,7 @@ export function computeReadinessSummary(
         setsCount = groupSetsInWorkout;
         totalRpe = groupRpeInWorkout;
         setsWithRpe = groupRpeCountInWorkout;
+        sessionVolumeKg = Math.round(groupVolumeInWorkout * 10) / 10;
         break; // Only need the most recent session for recovery window
       }
     }
@@ -271,6 +427,7 @@ export function computeReadinessSummary(
       readinessPercentage,
       status,
       lastSessionSets: setsCount,
+      lastSessionVolumeKg: sessionVolumeKg,
       lastSessionAvgRpe: avgRpe,
     };
   }

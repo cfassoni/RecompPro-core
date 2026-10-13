@@ -210,6 +210,7 @@ export interface MuscleReadinessResponse {
     age: number | null;
     effectiveWeightKg: number;
   };
+  muscles?: Record<string, unknown>;
 }
 
 export interface WeightHistoryPoint {

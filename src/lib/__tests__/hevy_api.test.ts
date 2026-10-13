@@ -354,9 +354,14 @@ describe("Hevy Integration & Workouts API Routes", () => {
     expect(readinessRes.status).toBe(200);
 
     const readinessJson = await readinessRes.json();
+    expect(readinessJson.muscleGroups).toBeTruthy();
+    expect(readinessJson.muscleGroups.length).toBeGreaterThan(0);
     expect(readinessJson.muscles).toBeTruthy();
     expect(readinessJson.muscles.chest).toBeTruthy();
     expect(readinessJson.muscles.quads).toBeTruthy();
+    expect(readinessJson.overallReadiness).toBeTruthy();
+    expect(readinessJson.smartRecommendation).toBeTruthy();
+    expect(readinessJson.userProfile).toBeTruthy();
   });
 
   it("should regenerate webhook token", async () => {
