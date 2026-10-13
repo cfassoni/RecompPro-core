@@ -133,9 +133,9 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
         setShowProfileSelector(true);
         setFitdaysPassword("");
       } else {
-        setFeedbackSuccess(t("profile.integrations.fitdays.connectSuccess"));
         setFitdaysPassword("");
         await fetchIntegrations();
+        setFeedbackSuccess(t("profile.integrations.fitdays.syncSuccess", { inserted: 0, updated: 0 }));
         if (onDataChanged) onDataChanged();
       }
     } catch (err: unknown) {
@@ -155,9 +155,9 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
       const res = await api.selectFitdaysProfile(selectedSuid, true);
       setShowProfileSelector(false);
       setFeedbackSuccess(
-        t("profile.integrations.fitdays.profileBoundSuccess", {
-          name: res.selectedProfileName || `#${selectedSuid}`,
-          count: res.result?.inserted || 0,
+        t("profile.integrations.fitdays.syncSuccess", {
+          inserted: res.result?.inserted || 0,
+          updated: res.result?.updated || 0,
         })
       );
       await fetchIntegrations();
@@ -528,63 +528,62 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
                   type="button"
                   onClick={() => handleSyncFitdays(true)}
                   disabled={isSyncing || isFullSyncing}
-                  className="px-4 py-2 rounded-lg border border-input bg-background hover:bg-muted text-foreground text-xs font-medium transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  className="px-3 py-2 rounded-lg border border-input bg-background hover:bg-muted text-foreground text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {isFullSyncing ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>{t("profile.integrations.fitdays.syncingFull")}</span>
+                      <span>{t("profile.integrations.fitdays.syncing")}</span>
                     </>
                   ) : (
                     <>
                       <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>{t("profile.integrations.fitdays.syncFullBtn")}</span>
+                      <span>{t("profile.integrations.fitdays.forceFullSync")}</span>
                     </>
                   )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDisconnectModal(true)}
-                  className="ml-auto px-3.5 py-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>{t("profile.integrations.fitdays.disconnectBtn")}</span>
                 </button>
               </div>
             </div>
 
-            {/* Sync Configuration Options */}
-            <div className="p-4 rounded-xl border border-border bg-card space-y-3">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {t("profile.integrations.fitdays.configSection")}
-              </h5>
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-medium text-foreground block">
-                    {t("profile.integrations.fitdays.skipWeightOnlyTitle")}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t("profile.integrations.fitdays.skipWeightOnlyDesc")}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleToggleSkipWeightOnly}
-                  disabled={isUpdatingConfig}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                    fitdaysIntegration.config?.skipWeightOnly ? "bg-primary" : "bg-muted"
-                  }`}
-                  role="switch"
-                  aria-checked={fitdaysIntegration.config?.skipWeightOnly}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      fitdaysIntegration.config?.skipWeightOnly ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
+            {/* Configuration Card: Ignore Weight-Only Scans Toggle */}
+            <div className="p-4 rounded-xl border border-border bg-card flex items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-xl">
+                <h5 className="text-sm font-semibold text-foreground">
+                  {t("profile.integrations.fitdays.skipWeightOnlyLabel")}
+                </h5>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t("profile.integrations.fitdays.skipWeightOnlyDesc")}
+                </p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleToggleSkipWeightOnly}
+                disabled={isUpdatingConfig}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  fitdaysIntegration.config?.skipWeightOnly ? "bg-primary" : "bg-muted"
+                }`}
+                role="switch"
+                aria-checked={fitdaysIntegration.config?.skipWeightOnly}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    fitdaysIntegration.config?.skipWeightOnly ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Revoke / Disconnect Button */}
+            <div className="pt-2 border-t border-border flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDisconnectModal(true)}
+                className="px-3.5 py-2 rounded-lg border border-destructive/30 hover:bg-destructive/10 text-destructive text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{t("profile.integrations.fitdays.disconnectBtn")}</span>
+              </button>
             </div>
           </div>
         ) : (
