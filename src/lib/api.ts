@@ -213,6 +213,44 @@ export interface MuscleReadinessResponse {
   muscles?: Record<string, unknown>;
 }
 
+export interface WorkoutStatsSummary {
+  totalWorkouts: number;
+  totalDurationSeconds: number;
+  totalVolumeKg: number;
+  totalReps: number;
+  currentWeekDurationSeconds: number;
+  currentWeekVolumeKg: number;
+  currentWeekReps: number;
+  currentWeekWorkoutsCount: number;
+}
+
+export interface WorkoutChartPoint {
+  label: string;
+  startDate: string;
+  endDate: string;
+  durationHours: number;
+  durationSeconds: number;
+  volumeKg: number;
+  reps: number;
+  workoutsCount: number;
+}
+
+export interface WorkoutCalendarItem {
+  id: string;
+  title: string;
+  startTime: string;
+  durationSeconds: number;
+  totalVolumeKg: number;
+  repsCount: number;
+}
+
+export interface WorkoutStatsResponse {
+  period: "all" | "1m" | "3m" | "6m" | "1y";
+  summary: WorkoutStatsSummary;
+  chartData: WorkoutChartPoint[];
+  calendarDays: Record<string, WorkoutCalendarItem[]>;
+}
+
 export interface WeightHistoryPoint {
   date: string;
   weight: number;
@@ -893,6 +931,12 @@ export const api = {
 
   async getMuscleReadiness(): Promise<MuscleReadinessResponse> {
     return apiFetch<MuscleReadinessResponse>("/api/workouts/readiness", {
+      method: "GET",
+    });
+  },
+
+  async getWorkoutStats(period: "all" | "1m" | "3m" | "6m" | "1y" = "3m"): Promise<WorkoutStatsResponse> {
+    return apiFetch<WorkoutStatsResponse>(`/api/workouts/stats?period=${period}`, {
       method: "GET",
     });
   },

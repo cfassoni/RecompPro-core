@@ -220,7 +220,34 @@
     "selectAtLeastOneMetric": "Selecione ao menos uma métrica acima para exibir as linhas no gráfico.",
     "workoutExercise1": "1. Supino Inclinado com Halteres",
     "workoutExercise2": "2. Barra Fixa com Carga",
-    "workoutExercise3": "3. Remada com Apoio no Peito"
+    "workoutExercise3": "3. Remada com Apoio no Peito",
+    "workoutStats": {
+      "title": "Estatísticas de Treino",
+      "durationTab": "Duração",
+      "repsTab": "Repetições",
+      "volumeTab": "Volume",
+      "thisWeek": "Esta semana",
+      "totalInPeriod": "Total no período",
+      "noWorkouts": "Nenhum treino de força registrado neste período."
+    },
+    "calendar": {
+      "title": "Calendário",
+      "days": {
+        "sun": "D",
+        "mon": "S",
+        "tue": "T",
+        "wed": "Q",
+        "thu": "Q",
+        "fri": "S",
+        "sat": "S"
+      },
+      "workoutsOn": "Treinos em {{date}}",
+      "noWorkoutsOnDay": "Nenhum treino registrado neste dia.",
+      "duration": "Duração",
+      "volume": "Volume",
+      "viewAll": "Ver todos os treinos",
+      "sessionsThisMonth": "{{count}} treinos este mês"
+    }
   },
   "biometrics": {
     "title": "Bioimpedância & Métricas",

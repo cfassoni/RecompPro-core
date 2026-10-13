@@ -39,6 +39,8 @@ vi.mock("react-i18next", async (importOriginal) => {
 vi.mock("@/lib/api", () => ({
   api: {
     getSummary: vi.fn(),
+    getWorkoutStats: vi.fn(),
+    getMuscleReadiness: vi.fn(),
   },
 }));
 
@@ -112,6 +114,33 @@ describe("Dashboard View Component", () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({ enableWipPages: false });
     (api.getSummary as ReturnType<typeof vi.fn>).mockResolvedValue(mockSummary);
+    (api.getWorkoutStats as ReturnType<typeof vi.fn>).mockResolvedValue({
+      period: "3m",
+      summary: {
+        totalWorkouts: 0,
+        totalDurationSeconds: 0,
+        totalVolumeKg: 0,
+        totalReps: 0,
+        currentWeekDurationSeconds: 0,
+        currentWeekVolumeKg: 0,
+        currentWeekReps: 0,
+        currentWeekWorkoutsCount: 0,
+      },
+      chartData: [],
+      calendarDays: {},
+    });
+    (api.getMuscleReadiness as ReturnType<typeof vi.fn>).mockResolvedValue({
+      overallReadiness: "ready",
+      smartRecommendation: {
+        status: "ready",
+        readyGroups: ["chest"],
+        recoveringGroups: [],
+        suggestedFocus: ["chest"],
+        message: "All muscle groups are recovered.",
+      },
+      userProfile: { gender: "male", age: 30, effectiveWeightKg: 75 },
+      muscleGroups: [],
+    });
   });
 
   it("renders 3 Hero cards: Weight, Body Fat, Skeletal Muscle", async () => {
@@ -128,14 +157,14 @@ describe("Dashboard View Component", () => {
     render(<Dashboard onNavigateToImport={mockNavigateToImport} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "All" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "1M" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "3M" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "6M" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "1Y" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "All" })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "1M" })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "3M" })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "6M" })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "1Y" })[0]).toBeInTheDocument();
     });
 
-    const button1M = screen.getByRole("button", { name: "1M" });
+    const button1M = screen.getAllByRole("button", { name: "1M" })[0];
     fireEvent.click(button1M);
     expect(button1M).toHaveClass("bg-card");
   });

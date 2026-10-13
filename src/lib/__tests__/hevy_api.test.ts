@@ -9,6 +9,7 @@ import { POST as hevyWebhook } from "@/app/api/integrations/hevy/webhook/[token]
 import { GET as getWorkouts } from "@/app/api/workouts/route";
 import { GET as getWorkoutDetails } from "@/app/api/workouts/[id]/route";
 import { GET as getReadiness } from "@/app/api/workouts/readiness/route";
+import { GET as getWorkoutStats } from "@/app/api/workouts/stats/route";
 import { db } from "@/db/client";
 import { users, userIntegrations, workouts } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -362,6 +363,43 @@ describe("Hevy Integration & Workouts API Routes", () => {
     expect(readinessJson.overallReadiness).toBeTruthy();
     expect(readinessJson.smartRecommendation).toBeTruthy();
     expect(readinessJson.userProfile).toBeTruthy();
+  });
+
+  it("should compute workout stats and calendar days", async () => {
+    // 1. Connect & Sync
+    const connectReq = new NextRequest("http://localhost/api/integrations/hevy/connect", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ apiKey: "valid_hevy_api_key" }),
+    });
+    await connectHevy(connectReq);
+
+    const syncReq = new NextRequest("http://localhost/api/integrations/hevy/sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ forceFull: true }),
+    });
+    await syncHevy(syncReq);
+
+    const statsReq = new NextRequest("http://localhost/api/workouts/stats?period=3m", {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const statsRes = await getWorkoutStats(statsReq);
+    expect(statsRes.status).toBe(200);
+
+    const statsJson = await statsRes.json();
+    expect(statsJson.period).toBe("3m");
+    expect(statsJson.summary).toBeTruthy();
+    expect(statsJson.summary.totalWorkouts).toBe(1);
+    expect(statsJson.chartData).toBeTruthy();
+    expect(statsJson.chartData.length).toBe(12);
+    expect(statsJson.calendarDays).toBeTruthy();
   });
 
   it("should regenerate webhook token", async () => {

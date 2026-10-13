@@ -220,7 +220,34 @@
     "selectAtLeastOneMetric": "Please select at least one metric above to display the chart lines.",
     "workoutExercise1": "1. Incline DB Bench Press",
     "workoutExercise2": "2. Weighted Pull-ups",
-    "workoutExercise3": "3. Chest-Supported Row"
+    "workoutExercise3": "3. Chest-Supported Row",
+    "workoutStats": {
+      "title": "Workout Statistics",
+      "durationTab": "Duration",
+      "repsTab": "Reps",
+      "volumeTab": "Volume",
+      "thisWeek": "This week",
+      "totalInPeriod": "Total in period",
+      "noWorkouts": "No strength workouts recorded in this period."
+    },
+    "calendar": {
+      "title": "Calendar",
+      "days": {
+        "sun": "S",
+        "mon": "M",
+        "tue": "T",
+        "wed": "W",
+        "thu": "T",
+        "fri": "F",
+        "sat": "S"
+      },
+      "workoutsOn": "Workouts on {{date}}",
+      "noWorkoutsOnDay": "No workouts recorded on this day.",
+      "duration": "Duration",
+      "volume": "Volume",
+      "viewAll": "View all workouts",
+      "sessionsThisMonth": "{{count}} workouts this month"
+    }
   },
   "biometrics": {
     "title": "Biometrics Analysis",

@@ -220,7 +220,34 @@
     "selectAtLeastOneMetric": "Seleccione al menos una métrica arriba para mostrar las líneas del gráfico.",
     "workoutExercise1": "1. Press Inclinado con Mancuernas",
     "workoutExercise2": "2. Dominadas con Lastre",
-    "workoutExercise3": "3. Remo con Apoyo en Pecho"
+    "workoutExercise3": "3. Remo con Apoyo en Pecho",
+    "workoutStats": {
+      "title": "Estadísticas de Entrenamiento",
+      "durationTab": "Duración",
+      "repsTab": "Repeticiones",
+      "volumeTab": "Volumen",
+      "thisWeek": "Esta semana",
+      "totalInPeriod": "Total en el período",
+      "noWorkouts": "No hay entrenamientos de fuerza registrados en este período."
+    },
+    "calendar": {
+      "title": "Calendario",
+      "days": {
+        "sun": "D",
+        "mon": "L",
+        "tue": "M",
+        "wed": "X",
+        "thu": "J",
+        "fri": "V",
+        "sat": "S"
+      },
+      "workoutsOn": "Entrenamientos el {{date}}",
+      "noWorkoutsOnDay": "No hay entrenamientos registrados este día.",
+      "duration": "Duración",
+      "volume": "Volumen",
+      "viewAll": "Ver todos los entrenamientos",
+      "sessionsThisMonth": "{{count}} entrenamientos este mes"
+    }
   },
   "biometrics": {
     "title": "Bioimpedancia y Métricas",
