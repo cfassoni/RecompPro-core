@@ -82,6 +82,133 @@ export interface FitdaysSyncResponse {
   lastSyncedAt?: string;
 }
 
+export interface HevyStatusResponse {
+  connected: boolean;
+  integration?: {
+    id: number;
+    accountIdentifier: string;
+    status: string;
+    lastSyncedAt: string | null;
+    lastSyncError: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  config?: {
+    webhookToken?: string;
+    hevyUserId?: string;
+    username?: string;
+  };
+  webhookUrl?: string;
+}
+
+export interface ConnectHevyResponse {
+  success: boolean;
+  message: string;
+  accountIdentifier: string;
+  webhookToken: string;
+  webhookUrl: string;
+  templateCount: number;
+}
+
+export interface HevySyncResponse {
+  success: boolean;
+  message: string;
+  syncedWorkouts: number;
+  totalWorkouts: number;
+  errors?: string[];
+}
+
+export interface WorkoutSet {
+  id: number;
+  index: number;
+  type: string;
+  weightKg: number | null;
+  reps: number | null;
+  rpe: number | null;
+  durationSeconds: number | null;
+  distanceMeters: number | null;
+  customMetric: number | null;
+}
+
+export interface WorkoutExercise {
+  id: number;
+  title: string;
+  index: number;
+  notes: string | null;
+  supersetId: number | null;
+  primaryMuscleGroup: string | null;
+  equipment: string | null;
+  thumbnailUrl: string | null;
+  sets: WorkoutSet[];
+}
+
+export interface WorkoutItem {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  totalVolumeKg: number;
+  sessionCaloriesBurned: number;
+  epocCaloriesBurned: number;
+  totalCaloriesBurned: number;
+  avgRpe: number | null;
+  source: string;
+  exerciseCount: number;
+  setCount: number;
+  primaryMuscleGroups: string[];
+}
+
+export interface WorkoutDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  totalVolumeKg: number;
+  sessionCaloriesBurned: number;
+  epocCaloriesBurned: number;
+  totalCaloriesBurned: number;
+  avgRpe: number | null;
+  source: string;
+  exercises: WorkoutExercise[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MuscleReadinessItem {
+  group: string;
+  name: string;
+  status: "ready" | "recovering" | "exhausted";
+  readinessScore: number;
+  lastTrainedAt: string | null;
+  hoursSinceLastTrained: number | null;
+  recommendedRecoveryHours: number;
+  remainingRecoveryHours: number;
+  lastVolumeKg: number;
+  lastSetCount: number;
+  lastAvgRpe: number | null;
+}
+
+export interface MuscleReadinessResponse {
+  muscleGroups: MuscleReadinessItem[];
+  overallReadiness: "ready" | "recovering" | "exhausted";
+  smartRecommendation: {
+    status: string;
+    readyGroups: string[];
+    recoveringGroups: string[];
+    suggestedFocus: string[];
+    message: string;
+  };
+  userProfile: {
+    gender: string;
+    age: number | null;
+    effectiveWeightKg: number;
+  };
+}
+
 export interface WeightHistoryPoint {
   date: string;
   weight: number;
@@ -691,6 +818,78 @@ export const api = {
     return apiFetch<{ success: boolean; config: UserIntegrationConfig }>("/api/integrations/fitdays", {
       method: "PATCH",
       json: config,
+    });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Hevy Strength Integration & Workouts
+  // ---------------------------------------------------------------------------
+  async connectHevy(apiKey: string): Promise<ConnectHevyResponse> {
+    return apiFetch<ConnectHevyResponse>("/api/integrations/hevy/connect", {
+      method: "POST",
+      json: { apiKey },
+    });
+  },
+
+  async getHevyStatus(): Promise<HevyStatusResponse> {
+    return apiFetch<HevyStatusResponse>("/api/integrations/hevy", {
+      method: "GET",
+    });
+  },
+
+  async syncHevy(page = 1, pageSize = 10): Promise<HevySyncResponse> {
+    return apiFetch<HevySyncResponse>("/api/integrations/hevy/sync", {
+      method: "POST",
+      json: { page, pageSize },
+    });
+  },
+
+  async regenerateHevyWebhook(): Promise<{ success: boolean; webhookToken: string; webhookUrl: string }> {
+    return apiFetch<{ success: boolean; webhookToken: string; webhookUrl: string }>(
+      "/api/integrations/hevy/regenerate-webhook",
+      {
+        method: "POST",
+      }
+    );
+  },
+
+  async disconnectHevy(deleteData = false): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>("/api/integrations/hevy", {
+      method: "DELETE",
+      json: { deleteData },
+    });
+  },
+
+  async getWorkouts(
+    page = 1,
+    pageSize = 20
+  ): Promise<{
+    workouts: WorkoutItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  }> {
+    return apiFetch<{
+      workouts: WorkoutItem[];
+      total: number;
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
+    }>(`/api/workouts?page=${page}&pageSize=${pageSize}`, {
+      method: "GET",
+    });
+  },
+
+  async getWorkoutDetails(id: string): Promise<WorkoutDetail> {
+    return apiFetch<WorkoutDetail>(`/api/workouts/${id}`, {
+      method: "GET",
+    });
+  },
+
+  async getMuscleReadiness(): Promise<MuscleReadinessResponse> {
+    return apiFetch<MuscleReadinessResponse>("/api/workouts/readiness", {
+      method: "GET",
     });
   },
 };

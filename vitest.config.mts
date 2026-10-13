@@ -22,9 +22,11 @@ export default defineConfig({
         test: {
           name: "jsdom",
           include: [
+            "src/components/**/__tests__/**/*.test.tsx",
             "src/components/__tests__/**/*.test.tsx",
             "src/views/__tests__/**/*.test.tsx",
             "src/context/__tests__/**/*.test.tsx",
+            "src/app/__tests__/**/*.test.tsx",
           ],
           environment: "jsdom",
           globals: true,

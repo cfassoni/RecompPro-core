@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import NutritionMockupPage from "../(authenticated)/nutrition/page";
 import ActivitiesMockupPage from "../(authenticated)/activities/page";
 import * as navigation from "next/navigation";
 import * as authContext from "@/context/AuthContext";
+import "@/lib/i18n";
+
+// Mock @/lib/api
+vi.mock("@/lib/api", () => ({
+  api: {
+    getWorkouts: vi.fn().mockResolvedValue({ workouts: [], total: 0 }),
+    getMuscleReadiness: vi.fn().mockResolvedValue(null),
+  },
+}));
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -50,13 +59,14 @@ describe("WIP Mockup Routes Feature Flag Protection", () => {
     expect(screen.getByText("Mockup Preview")).toBeInTheDocument();
   });
 
-  it("renders Activities preview when explicitly enabled with 'true'", () => {
+  it("renders Activities preview when explicitly enabled with 'true'", async () => {
     vi.mocked(authContext.useAuth).mockReturnValue({
       enableWipPages: true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     render(<ActivitiesMockupPage />);
-    expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
-    expect(screen.getByText("Mockup Preview")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
+    });
   });
 });

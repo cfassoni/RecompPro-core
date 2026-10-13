@@ -212,12 +212,129 @@ export const userIntegrations = sqliteTable(
 );
 
 // -----------------------------------------------------------------------------
+// Table: Exercise Templates (Hevy Exercise Catalog & Custom Exercises)
+// -----------------------------------------------------------------------------
+export const exerciseTemplates = sqliteTable("exercise_templates", {
+  id: text("id").primaryKey(), // Hevy Template UUID / ID
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }), // null para globais, preenchido para custom
+  title: text("title").notNull(),
+  primaryMuscleGroup: text("primary_muscle_group"),
+  secondaryMuscleGroupsJson: text("secondary_muscle_groups_json"),
+  equipment: text("equipment"),
+  isCustom: integer("is_custom", { mode: "boolean" }).notNull().default(false),
+  thumbnailUrl: text("thumbnail_url"),
+  createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+});
+
+// -----------------------------------------------------------------------------
+// Table: Workouts (Strength & Activity Sessions)
+// -----------------------------------------------------------------------------
+export const workouts = sqliteTable(
+  "workouts",
+  {
+    id: text("id").primaryKey(), // Hevy Workout UUID ou UUID local
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    startTime: sqliteDateTime("start_time").notNull(),
+    endTime: sqliteDateTime("end_time").notNull(),
+    durationSeconds: integer("duration_seconds").notNull(),
+    totalVolumeKg: real("total_volume_kg").notNull().default(0),
+    sessionCaloriesBurned: real("session_calories_burned").notNull().default(0),
+    epocCaloriesBurned: real("epoc_calories_burned").notNull().default(0),
+    totalCaloriesBurned: real("total_calories_burned").notNull().default(0),
+    avgRpe: real("avg_rpe"),
+    source: text("source").notNull().default("hevy"),
+    createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+    updatedAt: sqliteDateTime("updated_at").notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    unique("_user_workout_uc").on(table.userId, table.id),
+  ]
+);
+
+// -----------------------------------------------------------------------------
+// Table: Workout Exercises
+// -----------------------------------------------------------------------------
+export const workoutExercises = sqliteTable("workout_exercises", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  workoutId: text("workout_id")
+    .notNull()
+    .references(() => workouts.id, { onDelete: "cascade" }),
+  exerciseTemplateId: text("exercise_template_id").references(
+    () => exerciseTemplates.id,
+    { onDelete: "set null" }
+  ),
+  title: text("title").notNull(),
+  index: integer("index").notNull().default(0),
+  notes: text("notes"),
+  supersetId: integer("superset_id"),
+});
+
+// -----------------------------------------------------------------------------
+// Table: Workout Sets
+// -----------------------------------------------------------------------------
+export const workoutSets = sqliteTable("workout_sets", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  workoutExerciseId: integer("workout_exercise_id")
+    .notNull()
+    .references(() => workoutExercises.id, { onDelete: "cascade" }),
+  index: integer("index").notNull().default(0),
+  type: text("type").notNull().default("normal"), // normal, warmup, dropset, failure
+  weightKg: real("weight_kg"),
+  reps: integer("reps"),
+  distanceMeters: real("distance_meters"),
+  durationSeconds: integer("duration_seconds"),
+  rpe: real("rpe"),
+  customMetric: real("custom_metric"),
+});
+
+// -----------------------------------------------------------------------------
 // Relations (Declared strictly after all table definitions)
 // -----------------------------------------------------------------------------
 export const usersRelations = relations(users, ({ many }) => ({
   records: many(recompRecords),
   sharedLinks: many(sharedLinks),
   integrations: many(userIntegrations),
+  workouts: many(workouts),
+  customExercises: many(exerciseTemplates),
+}));
+
+export const exerciseTemplatesRelations = relations(exerciseTemplates, ({ one, many }) => ({
+  user: one(users, {
+    fields: [exerciseTemplates.userId],
+    references: [users.id],
+  }),
+  workoutExercises: many(workoutExercises),
+}));
+
+export const workoutsRelations = relations(workouts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [workouts.userId],
+    references: [users.id],
+  }),
+  exercises: many(workoutExercises),
+}));
+
+export const workoutExercisesRelations = relations(workoutExercises, ({ one, many }) => ({
+  workout: one(workouts, {
+    fields: [workoutExercises.workoutId],
+    references: [workouts.id],
+  }),
+  template: one(exerciseTemplates, {
+    fields: [workoutExercises.exerciseTemplateId],
+    references: [exerciseTemplates.id],
+  }),
+  sets: many(workoutSets),
+}));
+
+export const workoutSetsRelations = relations(workoutSets, ({ one }) => ({
+  workoutExercise: one(workoutExercises, {
+    fields: [workoutSets.workoutExerciseId],
+    references: [workoutExercises.id],
+  }),
 }));
 
 export const userIntegrationsRelations = relations(userIntegrations, ({ one }) => ({
