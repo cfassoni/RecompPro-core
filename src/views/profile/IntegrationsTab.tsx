@@ -712,27 +712,6 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
                 </div>
               </div>
 
-              {/* Account metadata grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-card border border-border rounded-lg">
-                  <span className="block text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-                    {t("profile.integrations.hevy.connectedAccount")}
-                  </span>
-                  <span className="text-sm font-semibold text-foreground truncate block">
-                    {hevyIntegration.accountIdentifier}
-                  </span>
-                </div>
-
-                <div className="p-3 bg-card border border-border rounded-lg">
-                  <span className="block text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-                    {t("profile.integrations.hevy.status")}
-                  </span>
-                  <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 capitalize block">
-                    {hevyIntegration.status}
-                  </span>
-                </div>
-              </div>
-
               {/* Webhook Configuration Section */}
               <div className="p-4 rounded-xl border border-border bg-card space-y-3">
                 <div className="flex items-center justify-between">
