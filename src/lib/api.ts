@@ -112,9 +112,12 @@ export interface ConnectHevyResponse {
 
 export interface HevySyncResponse {
   success: boolean;
-  message: string;
+  message?: string;
   syncedWorkouts: number;
   totalWorkouts: number;
+  inserted?: number;
+  updated?: number;
+  total?: number;
   errors?: string[];
 }
 

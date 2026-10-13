@@ -268,8 +268,8 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
       const res = await api.syncHevy(1, pageSize);
       setFeedbackSuccess(
         t("profile.integrations.hevy.syncSuccess", {
-          synced: res.syncedWorkouts,
-          total: res.totalWorkouts,
+          synced: res.syncedWorkouts ?? res.inserted ?? 0,
+          total: res.totalWorkouts ?? res.total ?? 0,
         })
       );
       await fetchIntegrations();

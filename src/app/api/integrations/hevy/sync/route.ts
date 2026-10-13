@@ -10,7 +10,7 @@ import { syncHevyWorkouts } from "@/lib/hevy/sync";
 export const POST = withAuth(async (req, { user }) => {
   try {
     const body = await req.json().catch(() => ({}));
-    const { forceFull = false } = body;
+    const { forceFull = false, pageSize = 10 } = body;
 
     const integration = await db.query.userIntegrations.findFirst({
       where: and(
@@ -40,7 +40,7 @@ export const POST = withAuth(async (req, { user }) => {
     const client = new HevyClient({ apiKey: credentials.apiKey });
 
     try {
-      const syncResult = await syncHevyWorkouts(client, user.id, { forceFull });
+      const syncResult = await syncHevyWorkouts(client, user.id, { forceFull, pageSize });
 
       await db
         .update(userIntegrations)
@@ -53,6 +53,9 @@ export const POST = withAuth(async (req, { user }) => {
 
       return NextResponse.json({
         success: true,
+        message: "Workouts synchronized successfully",
+        syncedWorkouts: syncResult.inserted,
+        totalWorkouts: syncResult.total,
         ...syncResult,
       });
     } catch (syncErr: unknown) {

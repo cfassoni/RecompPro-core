@@ -80,8 +80,8 @@ export default function Activities() {
       const res = await api.syncHevy(1, 20);
       setFeedbackSuccess(
         t("activities.syncSuccess", {
-          synced: res.syncedWorkouts,
-          total: res.totalWorkouts,
+          synced: res.syncedWorkouts ?? res.inserted ?? 0,
+          total: res.totalWorkouts ?? res.total ?? 0,
         })
       );
       // Non-destructive background revalidation

@@ -260,9 +260,9 @@ export async function deleteHevyWorkout(workoutId: string, userId: number): Prom
 export async function syncHevyWorkouts(
   client: HevyClient,
   userId: number,
-  options: { forceFull?: boolean } = {}
+  options: { forceFull?: boolean; pageSize?: number } = {}
 ): Promise<SyncHevyWorkoutsResult> {
-  const { forceFull = false } = options;
+  const { forceFull = false, pageSize = 10 } = options;
 
   // Step 1: Ensure exercise templates are up to date
   const exerciseTemplatesCount = await syncExerciseTemplates(client, userId);
@@ -276,7 +276,7 @@ export async function syncHevyWorkouts(
   let shouldContinue = true;
 
   while (page <= pageCount && shouldContinue) {
-    const res = await client.getWorkouts(page, 10);
+    const res = await client.getWorkouts(page, pageSize);
     pageCount = res.page_count;
 
     if (!res.workouts || res.workouts.length === 0) {

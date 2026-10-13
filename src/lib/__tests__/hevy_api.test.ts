@@ -240,6 +240,8 @@ describe("Hevy Integration & Workouts API Routes", () => {
     const syncJson = await syncRes.json();
     expect(syncJson.success).toBe(true);
     expect(syncJson.total).toBe(1);
+    expect(syncJson.syncedWorkouts).toBe(1);
+    expect(syncJson.totalWorkouts).toBe(1);
 
     // 4. Verify Workouts in DB
     const listReq = new NextRequest("http://localhost/api/workouts", {
