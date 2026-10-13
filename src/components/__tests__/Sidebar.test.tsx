@@ -52,9 +52,11 @@ describe("Sidebar Component", () => {
 
     const dashboardLink = screen.getByRole("link", { name: /Dashboard/i });
     const biometricsLink = screen.getByRole("link", { name: /Biometrics/i });
+    const activitiesLink = screen.getByRole("link", { name: /Activities/i });
 
     expect(dashboardLink).toHaveAttribute("href", "/dashboard");
     expect(biometricsLink).toHaveAttribute("href", "/biometrics");
+    expect(activitiesLink).toHaveAttribute("href", "/activities");
   });
 
   it("shows shared reports link when sharedLinksCount > 0", () => {
@@ -85,7 +87,7 @@ describe("Sidebar Component", () => {
     render(<Sidebar {...mockProps} />);
 
     expect(screen.queryByRole("link", { name: /Nutrition/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Activities/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Activities/i })).toBeInTheDocument();
   });
 
   it("renders WiP items when enableWipPages is true", () => {
@@ -93,8 +95,7 @@ describe("Sidebar Component", () => {
     render(<Sidebar {...mockProps} />);
 
     const nutritionLink = screen.getByRole("link", { name: /Nutrition/i });
-    const activitiesLink = screen.getByRole("link", { name: /Activities/i });
     expect(nutritionLink).toHaveAttribute("href", "/nutrition");
-    expect(activitiesLink).toHaveAttribute("href", "/activities");
+    expect(screen.getByRole("link", { name: /Activities/i })).toHaveAttribute("href", "/activities");
   });
 });

@@ -40,15 +40,6 @@ describe("WIP Mockup Routes Feature Flag Protection", () => {
     expect(navigation.notFound).toHaveBeenCalledTimes(1);
   });
 
-  it("calls notFound() for Activities page by default", () => {
-    vi.mocked(authContext.useAuth).mockReturnValue({
-      enableWipPages: false,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
-    ActivitiesMockupPage();
-    expect(navigation.notFound).toHaveBeenCalledTimes(1);
-  });
-
   it("renders Nutrition preview when explicitly enabled with 'true'", () => {
     vi.mocked(authContext.useAuth).mockReturnValue({
       enableWipPages: true,
@@ -59,14 +50,15 @@ describe("WIP Mockup Routes Feature Flag Protection", () => {
     expect(screen.getByText("Mockup Preview")).toBeInTheDocument();
   });
 
-  it("renders Activities preview when explicitly enabled with 'true'", async () => {
+  it("renders Activities page unconditionally regardless of enableWipPages", async () => {
     vi.mocked(authContext.useAuth).mockReturnValue({
-      enableWipPages: true,
+      enableWipPages: false,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     render(<ActivitiesMockupPage />);
     await waitFor(() => {
       expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
     });
+    expect(navigation.notFound).not.toHaveBeenCalled();
   });
 });
