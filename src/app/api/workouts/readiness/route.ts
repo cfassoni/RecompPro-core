@@ -157,10 +157,20 @@ export const GET = withAuth(async (req, { user }) => {
       return NextResponse.json(emptyResponse);
     }
 
+    let caloricState: "deficit" | "surplus" | "maintenance" | null = null;
+    if (userProfile?.targetWeightKg && latestRecord?.weight) {
+      const diff = latestRecord.weight - userProfile.targetWeightKg;
+      if (diff > 0.5) caloricState = "deficit";
+      else if (diff < -0.5) caloricState = "surplus";
+      else caloricState = "maintenance";
+    }
+
     const mappedHistory: WorkoutHistoryItemForRecovery[] = recentWorkouts.map((w) => ({
       endTime: w.endTime,
       exercises: w.exercises.map((ex) => ({
         title: ex.title,
+        notes: ex.notes,
+        equipment: ex.template?.equipment ?? null,
         primaryMuscleGroup: ex.template?.primaryMuscleGroup ?? null,
         sets: ex.sets.map((s) => ({
           type: s.type,
@@ -174,6 +184,7 @@ export const GET = withAuth(async (req, { user }) => {
     const readiness = computeReadinessSummary(mappedHistory, {
       gender: userProfile?.gender ?? null,
       birthday: userProfile?.birthday ?? null,
+      caloricState,
     });
 
     const muscleGroups: MuscleReadinessItem[] = Object.values(readiness.muscles).map(
@@ -189,6 +200,9 @@ export const GET = withAuth(async (req, { user }) => {
           group: groupKey,
           name: formatMuscleName(m.group, lang),
           status: m.status,
+          clinicalStatus: m.clinicalStatus,
+          recommendedVolumeMultiplier: m.recommendedVolumeMultiplier,
+          muscleCategory: m.muscleCategory,
           readinessScore: m.readinessPercentage,
           lastTrainedAt: m.lastTrainedAt ? m.lastTrainedAt.toISOString() : null,
           hoursSinceLastTrained: m.hoursElapsed,

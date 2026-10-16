@@ -771,7 +771,25 @@
       "ago": "ago",
       "recoveryRemaining": "Recovery Remaining",
       "lastVolume": "Last Session Volume",
-      "fullyRested": "Fully rested • 100% capacity"
+      "fullyRested": "Fully rested • 100% capacity",
+      "volumeMultiplierTooltip": "Recommended training volume multiplier based on recovery status: {{pct}}%"
+    },
+    "prBadge": "PR",
+    "progression": {
+      "widgetTitle": "Load Progression & PRs",
+      "widgetSubtitle": "Historical double progression records and load improvements across training sessions.",
+      "prSingle": "PR",
+      "prPlural": "PRs",
+      "prCountTooltip": "{{count}} personal records achieved in this workout",
+      "exercisePrTooltip": "Personal record achieved on this exercise",
+      "nextTarget": "Next",
+      "assistedLabel": "assist.",
+      "effectiveRpeNotice": "Effective RPE derived via static double progression & biometric calibration",
+      "emptyTitle": "No progression records yet",
+      "emptySubtitle": "Keep training consistently! As you increase load or reps, your milestones will appear here.",
+      "exercisesProgressed": "{{count}} exercises progressed",
+      "totalMilestones": "{{count}} total milestones achieved",
+      "periodRange": "Period Range"
     }
   }
 }

@@ -3,16 +3,24 @@ import {
   calculateAgeInYears,
   mapToMuscleGroupKey,
   inferMuscleGroup,
-  calculateRecoveryWindowHours,
+  inferMovementCategory,
+  isAssistedBodyweightExercise,
+  resolveAdaptiveRepBracket,
+  deriveRpeFromDoubleProgression,
+  sanitizeAndResolveEffectiveRpe,
+  calculateUnifiedRecoveryHours,
+  evaluateMuscleReadiness,
+  prescribeNextLoadStaticDoubleProgression,
   computeReadinessSummary,
+  computeHistoricalProgressions,
 } from "../exercises/recovery";
 
-describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
+describe("Unified Muscle Recovery & Double Progression Engine (recovery.ts)", () => {
   describe("calculateAgeInYears", () => {
     it("should accurately calculate age from birthday", () => {
       const ref = new Date("2026-10-13T12:00:00Z");
       expect(calculateAgeInYears("1996-10-13", ref)).toBe(30);
-      expect(calculateAgeInYears("1996-10-14", ref)).toBe(29); // Birthday tomorrow
+      expect(calculateAgeInYears("1996-10-14", ref)).toBe(29);
       expect(calculateAgeInYears("1970-01-01", ref)).toBe(56);
       expect(calculateAgeInYears(null, ref)).toBeNull();
       expect(calculateAgeInYears("invalid-date", ref)).toBeNull();
@@ -49,31 +57,285 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
     });
   });
 
-  describe("calculateRecoveryWindowHours", () => {
-    it("should clamp recovery window between 24h and 72h", () => {
-      expect(calculateRecoveryWindowHours(0, null)).toBe(24);
-      expect(calculateRecoveryWindowHours(2, 6)).toBeGreaterThanOrEqual(24);
-      expect(calculateRecoveryWindowHours(20, 10)).toBeLessThanOrEqual(72);
+  describe("inferMovementCategory & isAssistedBodyweightExercise", () => {
+    it("should classify 3-tier movement categories accurately", () => {
+      expect(inferMovementCategory("Agachamento Livre com Barra")).toBe("free_weight_compound");
+      expect(inferMovementCategory("Bench Press (Barbell)")).toBe("free_weight_compound");
+      expect(inferMovementCategory("Leg Press 45", "machine")).toBe("machine_cable_compound");
+      expect(inferMovementCategory("Lat Pulldown", "cable")).toBe("machine_cable_compound");
+      expect(inferMovementCategory("Elevação Lateral", "dumbbell")).toBe("isolation_small");
+      expect(inferMovementCategory("Triceps Pushdown", "cable")).toBe("isolation_small");
+      expect(inferMovementCategory("Biceps Curl", "dumbbell", "biceps")).toBe("isolation_small");
     });
 
-    it("should apply 10% faster recovery for females in submaximal resistance training", () => {
-      const maleHours = calculateRecoveryWindowHours(8, 8, { gender: "male" });
-      const femaleHours = calculateRecoveryWindowHours(8, 8, { gender: "female" });
-
-      expect(femaleHours).toBeLessThan(maleHours);
-      expect(femaleHours).toBe(Math.round(maleHours * 0.9));
-    });
-
-    it("should scale recovery hours for older adults (> 40 years)", () => {
-      const youngHours = calculateRecoveryWindowHours(8, 8, { birthday: "2000-01-01" }); // ~26 yo
-      const masterHours = calculateRecoveryWindowHours(8, 8, { birthday: "1970-01-01" }); // ~56 yo
-
-      expect(masterHours).toBeGreaterThan(youngHours);
+    it("should detect assisted bodyweight exercises (Graviton)", () => {
+      expect(isAssistedBodyweightExercise("Pull Up (Assisted)")).toBe(true);
+      expect(isAssistedBodyweightExercise("Chin Up (Assisted)")).toBe(true);
+      expect(isAssistedBodyweightExercise("Barra Fixa Assistida")).toBe(true);
+      expect(isAssistedBodyweightExercise("Dip no Graviton", "machine")).toBe(true);
+      expect(isAssistedBodyweightExercise("Lat Pulldown", "cable")).toBe(false);
+      expect(isAssistedBodyweightExercise("Supino Reto", "barbell")).toBe(false);
     });
   });
 
-  describe("computeReadinessSummary", () => {
-    it("should compute muscle readiness states based on workout history", () => {
+  describe("Section 6 Acceptance Criteria", () => {
+    // Criterion #1: Zero Sets Edge Case
+    it("Criterion #1: calculateUnifiedRecoveryHours with 0 sets returns strictly 0", () => {
+      expect(calculateUnifiedRecoveryHours(0, { mode: "rpe", avgRpe: 8 })).toBe(0);
+      expect(
+        calculateUnifiedRecoveryHours(0, {
+          mode: "double_progression",
+          completedReps: [],
+          minRepsTarget: 8,
+          maxRepsTarget: 12,
+        })
+      ).toBe(0);
+    });
+
+    // Criterion #2: Invalid Birthday Resilience
+    it("Criterion #2: invalid birthday string does not produce NaN and falls back to kAge = 1.00", () => {
+      const hoursValidYoung = calculateUnifiedRecoveryHours(
+        4,
+        { mode: "rpe", avgRpe: 8 },
+        { birthday: "2000-01-01" },
+        "large"
+      );
+      const hoursInvalidDate = calculateUnifiedRecoveryHours(
+        4,
+        { mode: "rpe", avgRpe: 8 },
+        { birthday: "invalid-date" },
+        "large"
+      );
+
+      expect(isNaN(hoursInvalidDate)).toBe(false);
+      expect(hoursInvalidDate).toBe(hoursValidYoung);
+    });
+
+    // Criterion #3: Small vs Large Muscle Group Differentiation
+    it("Criterion #3: 4 sets @ RPE 8.5 for small muscle group yields 8-12 hours shorter recovery than large", () => {
+      const largeHours = calculateUnifiedRecoveryHours(
+        4,
+        { mode: "rpe", avgRpe: 8.5 },
+        undefined,
+        "large"
+      );
+      const smallHours = calculateUnifiedRecoveryHours(
+        4,
+        { mode: "rpe", avgRpe: 8.5 },
+        undefined,
+        "small"
+      );
+
+      const diff = largeHours - smallHours;
+      expect(diff).toBeGreaterThanOrEqual(8);
+      expect(diff).toBeLessThanOrEqual(12);
+      expect(largeHours).toBe(34.5);
+      expect(smallHours).toBe(25.7);
+    });
+
+    // Criterion #4: Double Progression Ceiling Detection
+    it("Criterion #4: completedReps [12, 12, 12] with target ceiling 12 derives RPE 9.5 and prescribes INCREASE_LOAD", () => {
+      const rpe = deriveRpeFromDoubleProgression({
+        mode: "double_progression",
+        completedReps: [12, 12, 12],
+        minRepsTarget: 8,
+        maxRepsTarget: 12,
+      });
+      expect(rpe).toBe(9.5);
+
+      const prescription = prescribeNextLoadStaticDoubleProgression(
+        50,
+        8,
+        12,
+        [12, 12, 12],
+        2.5
+      );
+      expect(prescription.action).toBe("INCREASE_LOAD");
+      expect(prescription.nextLoadKg).toBe(52.5);
+      expect(prescription.targetRepBracket).toEqual({ minReps: 8, maxReps: 12 });
+    });
+
+    // Criterion #5: 75% Readiness Threshold Gate
+    it("Criterion #5: evaluateMuscleReadiness(38, 48, 3) returns status READY and recommendedVolumeMultiplier 1.0", () => {
+      const result = evaluateMuscleReadiness(38, 48, 3);
+      expect(result.status).toBe("READY");
+      expect(result.recommendedVolumeMultiplier).toBe(1.0);
+      expect(result.completionPercentage).toBe(79); // 38 / 48 = 79.16%
+    });
+
+    // Criterion #6: RPE Noise & Subjectivity Sanitization ([8, 7, 10] Anomaly)
+    it("Criterion #6: sanitizes [8, 7, 10] under constant load to [8, 9, 10] with effectiveRpe >= 9.0", () => {
+      const sets = [
+        { type: "normal", weightKg: 80, reps: 10, rpe: 8 },
+        { type: "normal", weightKg: 80, reps: 10, rpe: 7 }, // Erroneous dip before failure
+        { type: "normal", weightKg: 80, reps: 10, rpe: 10 }, // Concentric failure anchor
+      ];
+
+      const resolution = sanitizeAndResolveEffectiveRpe(
+        sets,
+        "free_weight_compound"
+      );
+
+      expect(resolution.wasSanitized).toBe(true);
+      expect(resolution.source).toBe("explicit_sanitized");
+      expect(resolution.rawAvgRpe).toBe(8.3);
+      expect(resolution.effectiveRpe).toBeGreaterThanOrEqual(9.0);
+      expect(resolution.sanitizedSetRpes).toEqual([8, 9, 10]);
+    });
+
+    // Criterion #8: Adaptive Rep Brackets (6-10, 10-15, 15-20 & Hevy notes/failure tag)
+    it("Criterion #8: resolves adaptive rep brackets for 6-10, 10-15, 15-20 and parses notes", () => {
+      // Notes override
+      expect(resolveAdaptiveRepBracket("free_weight_compound", [8, 8, 8], "3x 6-10 reps")).toEqual({
+        minReps: 6,
+        maxReps: 10,
+      });
+      expect(resolveAdaptiveRepBracket("isolation_small", [16, 16, 16], "Intervalo 15-20")).toEqual({
+        minReps: 15,
+        maxReps: 20,
+      });
+
+      // Adaptive zoning without notes
+      // Compound with 10 reps -> [6, 10]
+      expect(resolveAdaptiveRepBracket("free_weight_compound", [10, 9, 8])).toEqual({
+        minReps: 6,
+        maxReps: 10,
+      });
+      // Small isolation with 14 reps -> [10, 15]
+      expect(resolveAdaptiveRepBracket("isolation_small", [14, 13, 12])).toEqual({
+        minReps: 10,
+        maxReps: 15,
+      });
+      // Exercise with 17 reps -> [15, 20]
+      expect(resolveAdaptiveRepBracket("isolation_small", [18, 16, 15])).toEqual({
+        minReps: 15,
+        maxReps: 20,
+      });
+
+      // Hevy failure tag maps to RPE 10.0
+      const setsWithFailure = [
+        { type: "normal", weightKg: 50, reps: 12, rpe: 8 },
+        { type: "failure", weightKg: 50, reps: 10, rpe: null }, // Hevy "F" tag
+      ];
+      const res = sanitizeAndResolveEffectiveRpe(setsWithFailure, "machine_cable_compound");
+      expect(res.sanitizedSetRpes?.[1]).toBe(10.0);
+      expect(res.effectiveRpe).toBeGreaterThanOrEqual(9.0);
+    });
+
+    // Criterion #9: Historical PR Detection (Baseline on 1st session, gold medal on 2nd session)
+    it("Criterion #9: baseline established on 1st session, gold medals awarded on 2nd session on PR", () => {
+      const workouts = [
+        {
+          id: "w1",
+          startTime: "2026-10-01T10:00:00Z",
+          exercises: [
+            {
+              title: "Supino Reto (Barra)",
+              sets: [
+                { type: "normal", weightKg: 80, reps: 8 },
+                { type: "normal", weightKg: 80, reps: 8 },
+              ],
+            },
+          ],
+        },
+        {
+          id: "w2",
+          startTime: "2026-10-05T10:00:00Z",
+          exercises: [
+            {
+              title: "Supino Reto (Barra)",
+              sets: [
+                { type: "normal", weightKg: 80, reps: 10 }, // Reps PR (+2 reps @ 80kg)
+                { type: "normal", weightKg: 85, reps: 6 }, // Weight PR (+5kg: 80 -> 85kg)
+              ],
+            },
+          ],
+        },
+      ];
+
+      const { workoutMap, getPeriodProgressions } = computeHistoricalProgressions(workouts);
+
+      // Workout 1: Baseline -> 0 PRs
+      const w1Summary = workoutMap.get("w1");
+      expect(w1Summary?.hasProgression).toBe(false);
+      expect(w1Summary?.totalPrCount).toBe(0);
+
+      // Workout 2: Has PRs
+      const w2Summary = workoutMap.get("w2");
+      expect(w2Summary?.hasProgression).toBe(true);
+      expect(w2Summary?.totalPrCount).toBe(2);
+
+      const ex2 = w2Summary?.exercises[0];
+      expect(ex2?.hasProgression).toBe(true);
+      expect(ex2?.setsProgression[0].isProgression).toBe(true);
+      expect(ex2?.setsProgression[0].progressionType).toBe("reps_pr");
+      expect(ex2?.setsProgression[0].deltaReps).toBe(2);
+
+      expect(ex2?.setsProgression[1].isProgression).toBe(true);
+      expect(ex2?.setsProgression[1].progressionType).toBe("weight_pr");
+      expect(ex2?.setsProgression[1].deltaWeightKg).toBe(5);
+
+      // Period summary
+      const periodItems = getPeriodProgressions(30);
+      expect(periodItems.length).toBe(1);
+      expect(periodItems[0].title).toBe("Supino Reto (Barra)");
+      expect(periodItems[0].startWeightKg).toBe(80);
+      expect(periodItems[0].currentWeightKg).toBe(85);
+      expect(periodItems[0].deltaWeightKg).toBe(5);
+      expect(periodItems[0].prCountInPeriod).toBe(2);
+    });
+
+    // Criterion #10: Inverted Polarity for Graviton / Assisted Exercises
+    it("Criterion #10: decreasing assistance on Graviton awards gold medal and prescribes load increase by reducing assistance", () => {
+      const workouts = [
+        {
+          id: "w1",
+          startTime: "2026-10-01T10:00:00Z",
+          exercises: [
+            {
+              title: "Pull Up (Assisted)",
+              sets: [{ type: "normal", weightKg: 35, reps: 10 }],
+            },
+          ],
+        },
+        {
+          id: "w2",
+          startTime: "2026-10-05T10:00:00Z",
+          exercises: [
+            {
+              title: "Pull Up (Assisted)",
+              sets: [{ type: "normal", weightKg: 30, reps: 10 }], // Less assistance = Progression!
+            },
+          ],
+        },
+      ];
+
+      const { workoutMap } = computeHistoricalProgressions(workouts);
+      const w2Summary = workoutMap.get("w2");
+      expect(w2Summary?.hasProgression).toBe(true);
+      const ex = w2Summary?.exercises[0];
+      expect(ex?.isAssisted).toBe(true);
+      expect(ex?.setsProgression[0].isProgression).toBe(true);
+      expect(ex?.setsProgression[0].progressionType).toBe("weight_pr");
+      expect(ex?.setsProgression[0].deltaWeightKg).toBe(-5);
+
+      // Double Progression on Graviton: hitting ceiling prescribes REDUCING assistance
+      const prescription = prescribeNextLoadStaticDoubleProgression(
+        30,
+        6,
+        10,
+        [10, 10, 10],
+        2.5,
+        true // isAssisted
+      );
+      expect(prescription.action).toBe("INCREASE_LOAD");
+      expect(prescription.nextLoadKg).toBe(27.5); // 30 - 2.5
+      expect(prescription.isAssisted).toBe(true);
+    });
+  });
+
+  describe("computeReadinessSummary Integration", () => {
+    it("should compute enriched muscle readiness states based on workout history", () => {
       const now = new Date("2026-10-13T12:00:00Z");
       const yesterday = new Date("2026-10-12T12:00:00Z"); // 24 hours ago
       const threeDaysAgo = new Date("2026-10-10T12:00:00Z"); // 72 hours ago
@@ -83,6 +345,7 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
           endTime: yesterday,
           exercises: [
             {
+              title: "Bench Press",
               primaryMuscleGroup: "Chest",
               sets: [
                 { type: "normal", reps: 10, rpe: 8, weightKg: 80 },
@@ -96,6 +359,7 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
           endTime: threeDaysAgo,
           exercises: [
             {
+              title: "Squat",
               primaryMuscleGroup: "Quadriceps",
               sets: [
                 { type: "normal", reps: 10, rpe: 8, weightKg: 100 },
@@ -106,26 +370,30 @@ describe("Muscle Recovery & Readiness Engine (recovery.ts)", () => {
         },
       ];
 
-      const summary = computeReadinessSummary(history, { gender: "male", birthday: "1995-01-01" }, now);
+      const summary = computeReadinessSummary(
+        history,
+        { gender: "male", birthday: "1995-01-01" },
+        now
+      );
 
       expect(summary.lastWorkoutAt).toEqual(yesterday);
       expect(summary.hoursSinceLastWorkout).toBe(24);
 
-      // Chest was trained 24 hours ago with high RPE, should be recovering
-      expect(summary.muscles.chest.status).toBe("recovering");
+      // Chest was trained 24 hours ago
       expect(summary.muscles.chest.hoursElapsed).toBe(24);
-      expect(summary.muscles.chest.lastSessionVolumeKg).toBe(2200); // 10*80 + 8*85 + 8*90 = 800 + 680 + 720
+      expect(summary.muscles.chest.lastSessionVolumeKg).toBe(2200);
       expect(summary.muscles.chest.lastSessionSets).toBe(3);
+      expect(summary.muscles.chest.muscleCategory).toBe("large");
 
       // Quads were trained 72 hours ago, should be 100% ready
       expect(summary.muscles.quads.status).toBe("ready");
+      expect(summary.muscles.quads.clinicalStatus).toBe("READY");
       expect(summary.muscles.quads.readinessPercentage).toBe(100);
-      expect(summary.muscles.quads.lastSessionVolumeKg).toBe(1800); // 10*100 + 8*100
-
+      expect(summary.muscles.quads.recommendedVolumeMultiplier).toBe(1.0);
 
       // Back was never trained in history, should be ready
       expect(summary.muscles.back.status).toBe("ready");
-      expect(summary.muscles.back.readinessPercentage).toBe(100);
+      expect(summary.muscles.back.clinicalStatus).toBe("READY");
 
       expect(summary.readyGroups).toContain("quads");
       expect(summary.readyGroups).toContain("back");

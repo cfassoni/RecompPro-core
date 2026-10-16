@@ -771,7 +771,25 @@
       "ago": "hace",
       "recoveryRemaining": "Tiempo de Descanso Restante",
       "lastVolume": "Volumen del Último Entrenamiento",
-      "fullyRested": "Totalmente recuperado • 100% de capacidad"
+      "fullyRested": "Totalmente recuperado • 100% de capacidad",
+      "volumeMultiplierTooltip": "Multiplicador de volumen recomendado según el estado de recuperación: {{pct}}%"
+    },
+    "prBadge": "PR",
+    "progression": {
+      "widgetTitle": "Progresión de Cargas & PRs",
+      "widgetSubtitle": "Récords históricos de doble progresión y evolución de carga a lo largo de las sesiones.",
+      "prSingle": "PR",
+      "prPlural": "PRs",
+      "prCountTooltip": "{{count}} récords personales logrados en este entrenamiento",
+      "exercisePrTooltip": "Récord personal superado en este ejercicio",
+      "nextTarget": "Siguiente",
+      "assistedLabel": "asist.",
+      "effectiveRpeNotice": "RPE efectivo derivado mediante doble progresión y calibración biométrica",
+      "emptyTitle": "Sin récords en este período",
+      "emptySubtitle": "¡Continúe entrenando con constancia! A medida que aumente cargas o repeticiones, sus logros aparecerán aquí.",
+      "exercisesProgressed": "{{count}} ejercicios progresaron",
+      "totalMilestones": "{{count}} logros totales alcanzados",
+      "periodRange": "Rango en el Período"
     }
   }
 }

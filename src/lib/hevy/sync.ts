@@ -123,19 +123,22 @@ export async function upsertHevyWorkout(
     }
   }
 
-  // Pre-load primary muscle groups for exercises from template if available
+  // Pre-load primary muscle groups and equipment for exercises from template if available
   const exercisesWithMuscleGroup = await Promise.all(
     (workout.exercises || []).map(async (ex) => {
       let primaryMuscleGroup: string | null = null;
+      let equipment: string | null = null;
       if (ex.exercise_template_id) {
         const tpl = await db.query.exerciseTemplates.findFirst({
           where: eq(exerciseTemplates.id, ex.exercise_template_id),
         });
         primaryMuscleGroup = tpl?.primaryMuscleGroup ?? null;
+        equipment = tpl?.equipment ?? null;
       }
       return {
         ...ex,
         primaryMuscleGroup,
+        equipment,
       };
     })
   );
@@ -147,6 +150,9 @@ export async function upsertHevyWorkout(
     fatMassKg: biometrics.fatMassKg,
     durationSeconds: durationSeconds > 0 ? durationSeconds : 3600,
     exercises: exercisesWithMuscleGroup.map((ex) => ({
+      title: ex.title,
+      equipment: ex.equipment,
+      notes: ex.notes,
       primaryMuscleGroup: ex.primaryMuscleGroup,
       sets: (ex.sets || []).map((s) => ({
         type: s.type,

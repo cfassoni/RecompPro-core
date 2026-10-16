@@ -131,6 +131,12 @@ export interface WorkoutSet {
   durationSeconds: number | null;
   distanceMeters: number | null;
   customMetric: number | null;
+  isProgression?: boolean;
+  progressionType?: "weight_pr" | "reps_pr" | "1rm_pr" | null;
+  deltaWeightKg?: number | null;
+  deltaReps?: number | null;
+  previousWeightKg?: number | null;
+  isAssisted?: boolean;
 }
 
 export interface WorkoutExercise {
@@ -142,6 +148,29 @@ export interface WorkoutExercise {
   primaryMuscleGroup: string | null;
   equipment: string | null;
   thumbnailUrl: string | null;
+  movementCategory?: string;
+  isAssisted?: boolean;
+  targetRepBracket?: { minReps: number; maxReps: number };
+  effectiveRpe?: number;
+  rpeSource?: string;
+  wasSanitized?: boolean;
+  hasProgression?: boolean;
+  progressionCount?: number;
+  bestProgressionBadge?: {
+    isProgression: boolean;
+    progressionType: string | null;
+    deltaWeightKg: number | null;
+    deltaReps: number | null;
+    previousWeightKg: number | null;
+    isAssisted?: boolean;
+  } | null;
+  progressionPrescription?: {
+    action: "INCREASE_LOAD" | "MAINTAIN_LOAD_PUSH_REPS" | "REDUCE_LOAD_RESET";
+    nextLoadKg: number;
+    targetRepBracket: { minReps: number; maxReps: number };
+    reasoning: string;
+    isAssisted?: boolean;
+  } | null;
   sets: WorkoutSet[];
 }
 
@@ -161,6 +190,8 @@ export interface WorkoutItem {
   exerciseCount: number;
   setCount: number;
   primaryMuscleGroups: string[];
+  hasProgression?: boolean;
+  progressionCount?: number;
 }
 
 export interface WorkoutDetail {
@@ -176,6 +207,8 @@ export interface WorkoutDetail {
   totalCaloriesBurned: number;
   avgRpe: number | null;
   source: string;
+  hasProgression?: boolean;
+  progressionCount?: number;
   exercises: WorkoutExercise[];
   createdAt: string;
   updatedAt: string;
@@ -185,6 +218,9 @@ export interface MuscleReadinessItem {
   group: string;
   name: string;
   status: "ready" | "recovering" | "exhausted";
+  clinicalStatus?: "READY" | "RECOVERING_TRAINABLE" | "FATIGUED_REST_REQUIRED";
+  recommendedVolumeMultiplier?: 1.0 | 0.8 | 0.0;
+  muscleCategory?: "large" | "small";
   readinessScore: number;
   lastTrainedAt: string | null;
   hoursSinceLastTrained: number | null;
@@ -193,6 +229,29 @@ export interface MuscleReadinessItem {
   lastVolumeKg: number;
   lastSetCount: number;
   lastAvgRpe: number | null;
+}
+
+export interface PeriodExerciseProgressionItem {
+  canonicalKey: string;
+  title: string;
+  primaryMuscleGroup: string | null;
+  isAssisted: boolean;
+  startWeightKg: number;
+  currentWeightKg: number;
+  deltaWeightKg: number;
+  pctChange: number;
+  bestWeightKg: number;
+  bestRepsAtWeight: number;
+  bestEst1RmKg: number;
+  prCountInPeriod: number;
+  lastProgressedAt: string;
+}
+
+export interface WorkoutProgressionsResponse {
+  period: "all" | "1m" | "3m" | "6m" | "1y";
+  items: PeriodExerciseProgressionItem[];
+  totalPrsInPeriod: number;
+  exercisesProgressedCount: number;
 }
 
 export interface MuscleReadinessResponse {
@@ -937,6 +996,12 @@ export const api = {
 
   async getWorkoutStats(period: "all" | "1m" | "3m" | "6m" | "1y" = "3m"): Promise<WorkoutStatsResponse> {
     return apiFetch<WorkoutStatsResponse>(`/api/workouts/stats?period=${period}`, {
+      method: "GET",
+    });
+  },
+
+  async getWorkoutProgressions(period: "all" | "1m" | "3m" | "6m" | "1y" = "1m"): Promise<WorkoutProgressionsResponse> {
+    return apiFetch<WorkoutProgressionsResponse>(`/api/workouts/progression?period=${period}`, {
       method: "GET",
     });
   },

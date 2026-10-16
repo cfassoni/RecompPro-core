@@ -761,7 +761,7 @@
       "noData": "Nenhum treino de força registrado ainda. Sincronize seus treinos para calcular as janelas de prontidão muscular.",
       "statusReady": "Pronto",
       "statusRecovering": "Em Recuperação",
-      "statusExhausted": "Fadigado",
+      "statusExhausted": "Fatigado",
       "scientificNotice": "Janelas de recuperação baseadas em evidências científicas, calibradas para massa magra efetiva (FFM), endurance por sexo e idade.",
       "biometricModulation": "Calibrado para: {{gender}}, {{age}} anos, {{weight}}kg peso metabólico",
       "recommendationTitle": "Recomendação Inteligente",
@@ -771,7 +771,25 @@
       "ago": "atrás",
       "recoveryRemaining": "Tempo de Descanso Restante",
       "lastVolume": "Volume do Último Treino",
-      "fullyRested": "Totalmente recuperado • 100% de capacidade"
+      "fullyRested": "Totalmente recuperado • 100% de capacidade",
+      "volumeMultiplierTooltip": "Multiplicador de volume recomendado baseado na prontidão tecidual: {{pct}}%"
+    },
+    "prBadge": "PR",
+    "progression": {
+      "widgetTitle": "Progressão de Carga & PRs",
+      "widgetSubtitle": "Recordes históricos de dupla progressão e evolução de carga ao longo das sessões.",
+      "prSingle": "PR",
+      "prPlural": "PRs",
+      "prCountTooltip": "{{count}} recordes pessoais conquistados neste treino",
+      "exercisePrTooltip": "Recorde pessoal batido neste exercício",
+      "nextTarget": "Próximo",
+      "assistedLabel": "assist.",
+      "effectiveRpeNotice": "RPE efetivo derivado via dupla progressão e calibração biométrica",
+      "emptyTitle": "Nenhum recorde neste período",
+      "emptySubtitle": "Continue treinando com consistência! Conforme você progredir cargas ou repetições, seus marcos aparecerão aqui.",
+      "exercisesProgressed": "{{count}} exercícios progrediram",
+      "totalMilestones": "{{count}} marcos conquistados no total",
+      "periodRange": "Faixa no Período"
     }
   }
 }

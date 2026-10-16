@@ -280,9 +280,31 @@ export default function MuscleReadinessWidget({
                 <span className="font-semibold text-sm text-foreground">
                   {getMuscleGroupName(mg.group)}
                 </span>
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
-                  <Icon className="h-3 w-3" />
-                  <span>{badge.label}</span>
+                <div className="flex items-center gap-1.5">
+                  {typeof mg.recommendedVolumeMultiplier === "number" && (
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        mg.recommendedVolumeMultiplier === 1.0
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                          : mg.recommendedVolumeMultiplier === 0.8
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
+                      }`}
+                      title={t("activities.readiness.volumeMultiplierTooltip", {
+                        pct: Math.round(mg.recommendedVolumeMultiplier * 100),
+                      })}
+                    >
+                      {mg.recommendedVolumeMultiplier === 1.0
+                        ? "100% Vol"
+                        : mg.recommendedVolumeMultiplier === 0.8
+                        ? "80% Vol"
+                        : "Rest"}
+                    </span>
+                  )}
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${badge.bg}`}>
+                    <Icon className="h-3 w-3" />
+                    <span>{badge.label}</span>
+                  </div>
                 </div>
               </div>
 

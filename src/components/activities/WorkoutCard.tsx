@@ -14,6 +14,10 @@ import {
   Loader2,
   Sparkles,
   Layers,
+  Trophy,
+  ArrowUpRight,
+  TrendingUp,
+  RotateCcw,
 } from "lucide-react";
 
 interface WorkoutCardProps {
@@ -58,16 +62,30 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
   const getSetTypeBadge = (type: string) => {
     switch (type.toLowerCase()) {
       case "warmup":
-        return <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">{t("activities.setsType.warmup")}</span>;
+        return (
+          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            {t("activities.setsType.warmup")}
+          </span>
+        );
       case "drop":
       case "dropset":
-        return <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">{t("activities.setsType.drop")}</span>;
+        return (
+          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+            {t("activities.setsType.drop")}
+          </span>
+        );
       case "failure":
-        return <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">{t("activities.setsType.failure")}</span>;
+        return (
+          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+            {t("activities.setsType.failure")}
+          </span>
+        );
       default:
         return null;
     }
   };
+
+  const prCount = details?.progressionCount ?? workout.progressionCount ?? 0;
 
   return (
     <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden transition-all hover:border-border/80">
@@ -79,13 +97,26 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
               <Dumbbell className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="font-bold text-base text-foreground">
                   {workout.title}
                 </h4>
                 <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">
                   {workout.source}
                 </span>
+
+                {/* PR Gold Medal Badge */}
+                {prCount > 0 && (
+                  <span
+                    className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                    title={t("activities.progression.prCountTooltip", { count: prCount })}
+                  >
+                    <Trophy className="h-3 w-3 text-amber-500" />
+                    <span>
+                      {prCount} {prCount === 1 ? t("activities.progression.prSingle") : t("activities.progression.prPlural")}
+                    </span>
+                  </span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(workout.startTime)} • {formatDuration(workout.durationSeconds)}
@@ -96,7 +127,10 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
           {/* Quick Metrics Header */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Calories with EPOC pill */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs" title={`${t("activities.sessionCalories")}: ${workout.sessionCaloriesBurned.toFixed(0)} kcal | ${t("activities.epocCalories")}: ${workout.epocCaloriesBurned.toFixed(0)} kcal`}>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs"
+              title={`${t("activities.sessionCalories")}: ${workout.sessionCaloriesBurned.toFixed(0)} kcal | ${t("activities.epocCalories")}: ${workout.epocCaloriesBurned.toFixed(0)} kcal`}
+            >
               <Flame className="h-3.5 w-3.5 text-rose-500 shrink-0" />
               <span className="font-data-mono font-bold text-foreground">
                 {workout.totalCaloriesBurned.toFixed(0)} kcal
@@ -119,7 +153,10 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
 
             {/* Avg RPE */}
             {workout.avgRpe !== null && (
-              <div className="px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs flex items-center gap-1">
+              <div
+                className="px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs flex items-center gap-1"
+                title={t("activities.progression.effectiveRpeNotice")}
+              >
                 <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 <span className="text-muted-foreground mr-1">RPE:</span>
                 <strong className="font-data-mono text-foreground">
@@ -185,72 +222,154 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
               </div>
 
               <div className="space-y-3">
-                {details.exercises.map((ex, exIdx) => (
-                  <div
-                    key={ex.id || exIdx}
-                    className="p-4 rounded-xl border border-border bg-card space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-foreground">
-                          {ex.title}
-                        </span>
-                        {ex.primaryMuscleGroup && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
-                            {getMuscleGroupName(ex.primaryMuscleGroup)}
+                {details.exercises.map((ex, exIdx) => {
+                  const prescription = ex.progressionPrescription;
+                  const hasPr = ex.hasProgression;
+                  const bestPr = ex.bestProgressionBadge;
+
+                  return (
+                    <div
+                      key={ex.id || exIdx}
+                      className="p-4 rounded-xl border border-border bg-card space-y-2.5"
+                    >
+                      {/* Exercise Header */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-foreground">
+                            {ex.title}
                           </span>
-                        )}
+                          {ex.primaryMuscleGroup && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              {getMuscleGroupName(ex.primaryMuscleGroup)}
+                            </span>
+                          )}
+
+                          {/* Exercise PR Medal */}
+                          {hasPr && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                              title={t("activities.progression.exercisePrTooltip")}
+                            >
+                              <Trophy className="h-3 w-3 text-amber-500" />
+                              <span>
+                                {ex.isAssisted && bestPr?.deltaWeightKg
+                                  ? `${bestPr.deltaWeightKg} kg ${t("activities.progression.assistedLabel")}`
+                                  : bestPr?.deltaWeightKg
+                                  ? `+${bestPr.deltaWeightKg} kg`
+                                  : bestPr?.deltaReps
+                                  ? `+${bestPr.deltaReps} reps`
+                                  : t("activities.progression.prSingle")}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Next Session Double Progression Prescription Badge */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {prescription && (
+                            <div
+                              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 border ${
+                                prescription.action === "INCREASE_LOAD"
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                  : prescription.action === "REDUCE_LOAD_RESET"
+                                  ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                  : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                              }`}
+                              title={prescription.reasoning}
+                            >
+                              {prescription.action === "INCREASE_LOAD" ? (
+                                <ArrowUpRight className="h-3 w-3" />
+                              ) : prescription.action === "REDUCE_LOAD_RESET" ? (
+                                <RotateCcw className="h-3 w-3" />
+                              ) : (
+                                <TrendingUp className="h-3 w-3" />
+                              )}
+                              <span>
+                                {t("activities.progression.nextTarget")}: {prescription.nextLoadKg} kg
+                                {prescription.action === "MAINTAIN_LOAD_PUSH_REPS" && prescription.targetRepBracket
+                                  ? ` (${prescription.targetRepBracket.minReps}-${prescription.targetRepBracket.maxReps} reps)`
+                                  : ""}
+                              </span>
+                            </div>
+                          )}
+
+                          {ex.equipment && (
+                            <span className="text-[11px] text-muted-foreground capitalize">
+                              {ex.equipment}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {ex.equipment && (
-                        <span className="text-[11px] text-muted-foreground capitalize">
-                          {ex.equipment}
-                        </span>
+
+                      {ex.notes && (
+                        <p className="text-[11px] text-muted-foreground italic">
+                          {ex.notes}
+                        </p>
                       )}
-                    </div>
 
-                    {ex.notes && (
-                      <p className="text-[11px] text-muted-foreground italic">
-                        {ex.notes}
-                      </p>
-                    )}
-
-                    {/* Sets Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-border/60 text-[11px] text-muted-foreground uppercase">
-                            <th className="py-1.5 pr-3 font-semibold">{t("activities.set")}</th>
-                            <th className="py-1.5 px-3 font-semibold">{t("activities.weight")}</th>
-                            <th className="py-1.5 px-3 font-semibold">{t("activities.reps")}</th>
-                            <th className="py-1.5 px-3 font-semibold">RPE</th>
-                            <th className="py-1.5 pl-3 font-semibold">{t("activities.type")}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {ex.sets.map((s, sIdx) => (
-                            <tr key={s.id || sIdx} className="font-data-mono">
-                              <td className="py-1.5 pr-3 text-muted-foreground font-sans">
-                                #{s.index + 1}
-                              </td>
-                              <td className="py-1.5 px-3 text-foreground font-semibold">
-                                {s.weightKg !== null ? `${s.weightKg} kg` : "—"}
-                              </td>
-                              <td className="py-1.5 px-3 text-foreground">
-                                {s.reps !== null ? s.reps : "—"}
-                              </td>
-                              <td className="py-1.5 px-3 text-muted-foreground">
-                                {s.rpe !== null ? s.rpe : "—"}
-                              </td>
-                              <td className="py-1.5 pl-3 font-sans">
-                                {getSetTypeBadge(s.type)}
-                              </td>
+                      {/* Sets Table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-border/60 text-[11px] text-muted-foreground uppercase">
+                              <th className="py-1.5 pr-3 font-semibold">{t("activities.set")}</th>
+                              <th className="py-1.5 px-3 font-semibold">{t("activities.weight")}</th>
+                              <th className="py-1.5 px-3 font-semibold">{t("activities.reps")}</th>
+                              <th className="py-1.5 px-3 font-semibold">RPE</th>
+                              <th className="py-1.5 pl-3 font-semibold">{t("activities.type")}</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-border/30">
+                            {ex.sets.map((s, sIdx) => {
+                              const isPrSet = s.isProgression;
+                              return (
+                                <tr
+                                  key={s.id || sIdx}
+                                  className={`font-data-mono transition-colors ${
+                                    isPrSet ? "bg-amber-500/10 dark:bg-amber-500/15" : ""
+                                  }`}
+                                >
+                                  <td className="py-1.5 pr-3 text-muted-foreground font-sans flex items-center gap-1.5">
+                                    <span>#{s.index + 1}</span>
+                                    {isPrSet && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 rounded bg-amber-500 text-amber-950 font-sans uppercase tracking-tight"
+                                        title={
+                                          s.isAssisted
+                                            ? `${s.deltaWeightKg} kg ${t("activities.progression.assistedLabel")}`
+                                            : s.deltaWeightKg
+                                            ? `+${s.deltaWeightKg} kg`
+                                            : s.deltaReps
+                                            ? `+${s.deltaReps} reps`
+                                            : t("activities.progression.prSingle")
+                                        }
+                                      >
+                                        <Trophy className="h-2.5 w-2.5" />
+                                        <span>PR</span>
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-foreground font-semibold">
+                                    {s.weightKg !== null ? `${s.weightKg} kg` : "—"}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-foreground">
+                                    {s.reps !== null ? s.reps : "—"}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-muted-foreground">
+                                    {s.rpe !== null ? s.rpe : "—"}
+                                  </td>
+                                  <td className="py-1.5 pl-3 font-sans">
+                                    {getSetTypeBadge(s.type)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (

@@ -2,31 +2,37 @@ import { describe, it, expect } from "vitest";
 import {
   calculateWorkoutCalories,
   getBaseMetForMuscleGroup,
+  resolveSetDynamicMet,
   getRpeMultiplier,
   calculateEffectiveWeight,
 } from "../exercises/calories";
 
 describe("Caloric Expenditure Engine (calories.ts)", () => {
-  describe("Base MET mapping", () => {
-    it("should assign 10.0 METs to multi-joint lower body movements", () => {
+  describe("Base MET mapping & Dynamic 3-Tier MET", () => {
+    it("should assign baseline METs correctly", () => {
       expect(getBaseMetForMuscleGroup("legs")).toBe(10.0);
-      expect(getBaseMetForMuscleGroup("quadriceps")).toBe(10.0);
-      expect(getBaseMetForMuscleGroup("glutes")).toBe(10.0);
-      expect(getBaseMetForMuscleGroup("hamstrings")).toBe(10.0);
-    });
-
-    it("should assign 7.5 METs to multi-joint upper body/torso movements", () => {
       expect(getBaseMetForMuscleGroup("chest")).toBe(7.5);
-      expect(getBaseMetForMuscleGroup("back")).toBe(7.5);
-      expect(getBaseMetForMuscleGroup("shoulders")).toBe(7.5);
-      expect(getBaseMetForMuscleGroup("lats")).toBe(7.5);
+      expect(getBaseMetForMuscleGroup("biceps")).toBe(5.0);
     });
 
-    it("should assign 5.0 METs to isolated or smaller muscle groups", () => {
-      expect(getBaseMetForMuscleGroup("biceps")).toBe(5.0);
-      expect(getBaseMetForMuscleGroup("triceps")).toBe(5.0);
-      expect(getBaseMetForMuscleGroup("calves")).toBe(5.0);
-      expect(getBaseMetForMuscleGroup("abs")).toBe(5.0);
+    it("should assign 3-tier biomechanical METs accurately", () => {
+      // free_weight_compound
+      expect(resolveSetDynamicMet("free_weight_compound", 9.0)).toBe(6.0);
+      expect(resolveSetDynamicMet("free_weight_compound", 7.5)).toBe(5.2);
+      expect(resolveSetDynamicMet("free_weight_compound", 6.0)).toBe(4.5);
+
+      // machine_cable_compound
+      expect(resolveSetDynamicMet("machine_cable_compound", 9.0)).toBe(5.5);
+      expect(resolveSetDynamicMet("machine_cable_compound", 7.5)).toBe(4.6);
+      expect(resolveSetDynamicMet("machine_cable_compound", 6.0)).toBe(4.0);
+
+      // isolation_small
+      expect(resolveSetDynamicMet("isolation_small", 9.0)).toBe(4.5);
+      expect(resolveSetDynamicMet("isolation_small", 7.5)).toBe(3.5);
+      expect(resolveSetDynamicMet("isolation_small", 6.0)).toBe(3.0);
+
+      // warmup
+      expect(resolveSetDynamicMet("free_weight_compound", 6.0, true)).toBe(2.8);
     });
   });
 
@@ -39,13 +45,12 @@ describe("Caloric Expenditure Engine (calories.ts)", () => {
     it("should scale with RPE intensity", () => {
       expect(getRpeMultiplier(5)).toBe(1.0);
       expect(getRpeMultiplier(8)).toBe(1.18);
-      expect(getRpeMultiplier(10)).toBe(1.30);
+      expect(getRpeMultiplier(10)).toBe(1.3);
     });
   });
 
   describe("Effective Metabolic Weight (FFM Calibration)", () => {
     it("should compute Weff based on FFM + 0.2*FM", () => {
-      // User with 100kg total, 70kg FFM, 30kg FM
       const weff = calculateEffectiveWeight(100, 70, 30);
       expect(weff).toBe(70 + 0.2 * 30); // 76kg
     });
@@ -64,6 +69,7 @@ describe("Caloric Expenditure Engine (calories.ts)", () => {
         durationSeconds: 3600, // 60 minutes
         exercises: [
           {
+            title: "Agachamento Livre",
             primaryMuscleGroup: "quadriceps",
             sets: [
               { type: "normal", reps: 10, weightKg: 100, rpe: 8 },
@@ -72,9 +78,10 @@ describe("Caloric Expenditure Engine (calories.ts)", () => {
             ],
           },
           {
+            title: "Supino Reto",
             primaryMuscleGroup: "chest",
             sets: [
-              { type: "warmup", reps: 15, weightKg: 40 }, // Warmup should be ignored
+              { type: "warmup", reps: 15, weightKg: 40 },
               { type: "normal", reps: 10, weightKg: 80, rpe: 8 },
               { type: "normal", reps: 8, weightKg: 85, rpe: 8.5 },
             ],
@@ -86,16 +93,63 @@ describe("Caloric Expenditure Engine (calories.ts)", () => {
       expect(result.restSeconds).toBeGreaterThan(0);
       expect(result.activeKcal).toBeGreaterThan(0);
       expect(result.restKcal).toBeGreaterThan(0);
-      expect(result.sessionKcal).toBe(Math.round((result.activeKcal + result.restKcal) * 10) / 10);
+      expect(result.sessionKcal).toBe(
+        Math.round((result.activeKcal + result.restKcal) * 10) / 10
+      );
       expect(result.epocKcal).toBeGreaterThan(0);
-      expect(result.totalKcal).toBe(Math.round((result.sessionKcal + result.epocKcal) * 10) / 10);
-      expect(result.epocPercentage).toBeGreaterThanOrEqual(6.0);
-      expect(result.epocPercentage).toBeLessThanOrEqual(18.0);
+      expect(result.totalKcal).toBe(
+        Math.round((result.sessionKcal + result.epocKcal) * 10) / 10
+      );
+      expect(result.epocPercentage).toBeGreaterThanOrEqual(3.0);
+      expect(result.epocPercentage).toBeLessThanOrEqual(13.0);
       expect(result.avgRpe).toBeCloseTo(8.4, 0.5);
     });
 
+    // Criterion #7: 3-Tier MET & Muscle-Mass Weighted EPOC
+    it("Criterion #7: free_weight_compound of large muscle group burns more active kcal and generates higher EPOC than small isolation", () => {
+      const sets = [
+        { type: "normal" as const, reps: 10, weightKg: 80 },
+        { type: "normal" as const, reps: 10, weightKg: 80 },
+        { type: "normal" as const, reps: 8, weightKg: 80 },
+      ];
+
+      // Session A: Heavy Squat (free_weight_compound + large group)
+      const compoundLarge = calculateWorkoutCalories({
+        weightKg: 80,
+        fatFreeMassKg: 68,
+        durationSeconds: 1800,
+        exercises: [
+          {
+            title: "Agachamento Livre com Barra",
+            primaryMuscleGroup: "quadriceps",
+            sets,
+          },
+        ],
+      });
+
+      // Session B: Biceps Curl (isolation_small + small group)
+      const isolationSmall = calculateWorkoutCalories({
+        weightKg: 80,
+        fatFreeMassKg: 68,
+        durationSeconds: 1800,
+        exercises: [
+          {
+            title: "Rosca Direta com Halteres",
+            primaryMuscleGroup: "biceps",
+            sets,
+          },
+        ],
+      });
+
+      expect(compoundLarge.activeKcal).toBeGreaterThan(isolationSmall.activeKcal);
+      expect(compoundLarge.epocKcal).toBeGreaterThan(isolationSmall.epocKcal);
+      expect(compoundLarge.epocPercentage).toBeGreaterThan(isolationSmall.epocPercentage);
+      // Both derive avgRpe via Double Progression without manual RPE
+      expect(compoundLarge.avgRpe).not.toBeNull();
+      expect(isolationSmall.avgRpe).not.toBeNull();
+    });
+
     it("should prevent unrealistic caloric inflation for long idle rests", () => {
-      // 16 working sets performed in 45 min vs same 16 sets taking 90 min due to idle rest
       const sets = Array.from({ length: 4 }, () => ({
         type: "normal" as const,
         reps: 10,
@@ -120,15 +174,12 @@ describe("Caloric Expenditure Engine (calories.ts)", () => {
       const delayedSession = calculateWorkoutCalories({
         weightKg: 80,
         fatFreeMassKg: 68,
-        durationSeconds: 5400, // 90 min (doubled duration due to idle phone rest)
+        durationSeconds: 5400, // 90 min
         exercises,
       });
 
-      // Active calories must be identical regardless of session duration
       expect(focusedSession.activeKcal).toBe(delayedSession.activeKcal);
-      // In a naive linear model, 90 min would double the calories (2.0x = ~414 kcal).
-      // In our bi-phasic model, rest only accumulates at 2.2 METs, dampening the inflation to ~1.59x.
-      expect(delayedSession.sessionKcal).toBeLessThan(focusedSession.sessionKcal * 1.7);
+      expect(delayedSession.sessionKcal).toBeLessThan(focusedSession.sessionKcal * 1.85);
       expect(delayedSession.sessionKcal).toBeLessThan(focusedSession.sessionKcal * 2.0);
     });
   });

@@ -3,10 +3,20 @@
  * Implements:
  * - Bi-phasic energy expenditure (Active TUT vs Inter-set Rest Phase)
  * - FFM / Effective Metabolic Weight calibration (Byrne et al., 2005)
- * - Muscle-group specific MET scaling (2024/2011 Compendium of Physical Activities)
- * - RPE effort scaling (Helms/Zourdos RIR scale)
- * - Prolonged EPOC afterburn (~24h recovery & protein synthesis: Schuenke 2002; Paoli 2012)
+ * - 3-Tier biomechanical MET scaling via MovementCategory (Compendium of Physical Activities)
+ * - Dynamic RPE and concentric deceleration (+15% TUT at RPE >= 8.5)
+ * - Muscle-group weighted non-linear EPOC ((RPE/8)^1.25 * muscleMassFactor + densityBonus)
+ * - Counterweight assistance compensation for bodyweight movements (Graviton)
  */
+
+import {
+  MovementCategory,
+  inferMovementCategory,
+  isAssistedBodyweightExercise,
+  sanitizeAndResolveEffectiveRpe,
+  inferMuscleGroup,
+  getMuscleGroupCategory,
+} from "./recovery";
 
 export interface CaloricCalculationSet {
   type?: string | null; // normal, warmup, dropset, failure
@@ -17,6 +27,9 @@ export interface CaloricCalculationSet {
 }
 
 export interface CaloricCalculationExercise {
+  title?: string | null;
+  equipment?: string | null;
+  notes?: string | null;
   primaryMuscleGroup?: string | null;
   sets: CaloricCalculationSet[];
 }
@@ -30,29 +43,24 @@ export interface CaloricCalculationParams {
 }
 
 export interface CaloricCalculationResult {
-  sessionKcal: number;    // Intra-treino (TUT ativo + pausas EPOC agudo)
-  epocKcal: number;       // Afterburn prolongado (~24h reparação/síntese proteica)
-  totalKcal: number;      // sessionKcal + epocKcal
-  activeKcal: number;     // Parcela estritamente sob tensão
-  restKcal: number;       // Parcela do descanso intra-sessão
+  sessionKcal: number; // Active TUT + Rest phase
+  epocKcal: number; // Non-linear EPOC afterburn (~24h protein synthesis)
+  totalKcal: number; // sessionKcal + epocKcal
+  activeKcal: number; // Strictly active muscle contraction
+  restKcal: number; // Rest phase between sets
   activeSeconds: number;
   restSeconds: number;
   avgRpe: number | null;
-  epocPercentage: number; // Ex: 12.5%
+  epocPercentage: number; // E.g., 8.5%
 }
 
 /**
- * Returns baseline MET for active muscle contraction based on primary muscle group.
- * Compendium of Physical Activities codes:
- * - Legs / Glutes / Back multi-joint compound: 10.0 METs
- * - Chest / Shoulders / Upper compound: 7.5 METs
- * - Arms / Calves / Isolation: 5.0 METs
+ * Baseline MET for muscle group (backward-compatibility wrapper).
  */
 export function getBaseMetForMuscleGroup(muscleGroup?: string | null): number {
   if (!muscleGroup) return 6.5;
   const normalized = muscleGroup.toLowerCase().trim();
 
-  // Multi-joint lower body & posterior chain
   if (
     normalized.includes("leg") ||
     normalized.includes("quad") ||
@@ -63,7 +71,6 @@ export function getBaseMetForMuscleGroup(muscleGroup?: string | null): number {
     return 10.0;
   }
 
-  // Multi-joint upper body & torso
   if (
     normalized.includes("chest") ||
     normalized.includes("back") ||
@@ -75,13 +82,39 @@ export function getBaseMetForMuscleGroup(muscleGroup?: string | null): number {
     return 7.5;
   }
 
-  // Isolation & smaller muscle groups (arms, calves, abs, forearms)
   return 5.0;
 }
 
 /**
- * RPE Effort Multiplier (Helms/Zourdos RIR scale: 5 to 10)
- * Scaled continuously around standard RPE 7.5.
+ * 3-Tier Biomechanical Dynamic MET resolution.
+ */
+export function resolveSetDynamicMet(
+  category: MovementCategory,
+  setRpe: number,
+  isWarmup = false
+): number {
+  if (isWarmup) return 2.8;
+
+  if (category === "free_weight_compound") {
+    if (setRpe >= 8.5) return 6.0;
+    if (setRpe >= 7.0) return 5.2;
+    return 4.5;
+  }
+
+  if (category === "machine_cable_compound") {
+    if (setRpe >= 8.5) return 5.5;
+    if (setRpe >= 7.0) return 4.6;
+    return 4.0;
+  }
+
+  // isolation_small
+  if (setRpe >= 8.5) return 4.5;
+  if (setRpe >= 7.0) return 3.5;
+  return 3.0;
+}
+
+/**
+ * RPE Effort Multiplier (Helms/Zourdos RIR scale: 5 to 10).
  */
 export function getRpeMultiplier(rpe?: number | null): number {
   if (rpe === null || rpe === undefined || isNaN(rpe) || rpe <= 0) {
@@ -92,8 +125,7 @@ export function getRpeMultiplier(rpe?: number | null): number {
 }
 
 /**
- * Calculates Effective Metabolic Weight (Weff) in kg to prevent caloric overestimation
- * in individuals with obesity (Byrne et al., 2005).
+ * Calculates Effective Metabolic Weight (Weff) in kg (Byrne et al., 2005).
  */
 export function calculateEffectiveWeight(
   weightKg: number,
@@ -101,66 +133,102 @@ export function calculateEffectiveWeight(
   fatMassKg?: number | null
 ): number {
   if (fatFreeMassKg && fatFreeMassKg > 0) {
-    const fm = fatMassKg && fatMassKg > 0 ? fatMassKg : Math.max(0, weightKg - fatFreeMassKg);
+    const fm =
+      fatMassKg && fatMassKg > 0
+        ? fatMassKg
+        : Math.max(0, weightKg - fatFreeMassKg);
     return fatFreeMassKg + 0.2 * fm;
   }
-  // Population fallback if no bioimpedance scan exists: assume 85% effective mass
   return weightKg * 0.85;
 }
 
-export function calculateWorkoutCalories(params: CaloricCalculationParams): CaloricCalculationResult {
-  const { weightKg, fatFreeMassKg, fatMassKg, durationSeconds, exercises } = params;
-  const effectiveWeight = calculateEffectiveWeight(weightKg, fatFreeMassKg, fatMassKg);
+/**
+ * Unified resistance training caloric expenditure calculator.
+ */
+export function calculateWorkoutCalories(
+  params: CaloricCalculationParams
+): CaloricCalculationResult {
+  const { weightKg, fatFreeMassKg, fatMassKg, durationSeconds, exercises } =
+    params;
+  const effectiveWeight = calculateEffectiveWeight(
+    weightKg,
+    fatFreeMassKg,
+    fatMassKg
+  );
 
   let activeSeconds = 0;
   let activeKcal = 0;
-  let totalVolumeRpe = 0;
   let totalWorkingVolume = 0;
-  let hasLegOrBackCompound = false;
   let totalWorkingSets = 0;
+  let largeGroupWorkingSets = 0;
+  let sumEffectiveRpe = 0;
 
   for (const ex of exercises) {
-    const baseMet = getBaseMetForMuscleGroup(ex.primaryMuscleGroup);
-    if (baseMet >= 7.5) {
-      hasLegOrBackCompound = true;
-    }
+    const movCategory = inferMovementCategory(
+      ex.title,
+      ex.equipment,
+      ex.primaryMuscleGroup
+    );
+    const isAssisted = isAssistedBodyweightExercise(ex.title, ex.equipment);
+    const muscleGroup = inferMuscleGroup(ex.primaryMuscleGroup, ex.title);
+    const isLargeMuscle = muscleGroup
+      ? getMuscleGroupCategory(muscleGroup) === "large"
+      : movCategory !== "isolation_small";
 
+    const rpeRes = sanitizeAndResolveEffectiveRpe(
+      ex.sets,
+      movCategory,
+      ex.notes,
+      isAssisted
+    );
+
+    let workingIndex = 0;
     for (const set of ex.sets) {
       if (set.type === "warmup") continue;
 
       const reps = set.reps ?? 0;
-      // Cadence: 3.5s per rep if not explicitly provided
-      const tutSeconds =
+      const setEffectiveRpe =
+        rpeRes.sanitizedSetRpes?.[workingIndex] ?? rpeRes.effectiveRpe;
+      workingIndex++;
+
+      // Concentric deceleration: +15% TUT per rep at high intensity (RPE >= 8.5)
+      let tutSeconds =
         set.durationSeconds && set.durationSeconds > 0
           ? set.durationSeconds
-          : reps * 3.5;
+          : reps * (setEffectiveRpe >= 8.5 ? 4.025 : 3.5);
 
+      if (tutSeconds <= 0 && reps > 0) {
+        tutSeconds = reps * 3.5;
+      }
       if (tutSeconds <= 0) continue;
 
       totalWorkingSets++;
+      if (isLargeMuscle) {
+        largeGroupWorkingSets++;
+      }
+      sumEffectiveRpe += setEffectiveRpe;
       activeSeconds += tutSeconds;
 
-      const rpeMult = getRpeMultiplier(set.rpe);
-      const activeMet = baseMet * rpeMult;
+      const setMet = resolveSetDynamicMet(movCategory, setEffectiveRpe, false);
 
       // kcal = MET * 3.5 * Weff / 200 * (tutSeconds / 60)
-      const setKcal = (activeMet * 3.5 * effectiveWeight * (tutSeconds / 60)) / 200;
+      const setKcal =
+        (setMet * 3.5 * effectiveWeight * (tutSeconds / 60)) / 200;
       activeKcal += setKcal;
 
-      // Track RPE weighted by set volume (or reps)
-      const setVol = (set.weightKg ?? 1) * Math.max(1, reps);
-      if (set.rpe && set.rpe > 0) {
-        totalVolumeRpe += set.rpe * setVol;
-        totalWorkingVolume += setVol;
+      // Effective load for tonnage
+      let effectiveLoad = set.weightKg ?? 0;
+      if (isAssisted) {
+        effectiveLoad = Math.max(10, weightKg - effectiveLoad);
       }
+      totalWorkingVolume += effectiveLoad * Math.max(1, reps);
     }
   }
 
-  // Safe clamping of active seconds vs duration
   activeSeconds = Math.min(durationSeconds, activeSeconds);
   const restSeconds = Math.max(0, durationSeconds - activeSeconds);
 
-  // Rest phase: Acute EPOC recovery at 2.2 METs
+  // Rest phase: Acute recovery at 2.2 METs
   const restMet = 2.2;
   const restKcal = (restMet * 3.5 * effectiveWeight * (restSeconds / 60)) / 200;
 
@@ -168,26 +236,35 @@ export function calculateWorkoutCalories(params: CaloricCalculationParams): Calo
   const roundedRest = Math.round(restKcal * 10) / 10;
   const sessionKcal = Math.round((roundedActive + roundedRest) * 10) / 10;
 
-  // Average session RPE
   const avgRpe =
-    totalWorkingVolume > 0
-      ? Math.round((totalVolumeRpe / totalWorkingVolume) * 10) / 10
-      : totalWorkingSets > 0
-      ? 7.5
+    totalWorkingSets > 0
+      ? Math.round((sumEffectiveRpe / totalWorkingSets) * 10) / 10
       : null;
 
-  // Prolonged EPOC afterburn (~24h recovery & muscle protein synthesis)
-  // Scaled by session RPE and muscle mass involvement (Schuenke 2002, Paoli 2012)
-  let epocFactor = 0.1; // 10% base
-  if (avgRpe) {
-    epocFactor *= avgRpe / 7.5;
-  }
-  if (hasLegOrBackCompound) {
-    epocFactor *= 1.2;
-  }
-  // Clamp EPOC factor between 6% and 18%
-  const clampedEpocFactor = Math.min(0.18, Math.max(0.06, epocFactor));
-  const epocKcal = Math.round(sessionKcal * clampedEpocFactor * 10) / 10;
+  // Non-linear EPOC calculation
+  const safeAvgRpe = avgRpe ?? 7.5;
+  const epocRpeMultiplier = Math.pow(
+    Math.min(10, Math.max(5, safeAvgRpe)) / 8,
+    1.25
+  );
+
+  const largeMuscleRatio =
+    totalWorkingSets > 0 ? largeGroupWorkingSets / totalWorkingSets : 0.5;
+  const muscleMassFactor = 0.75 + 0.25 * largeMuscleRatio;
+
+  const durationMinutes = Math.max(1, durationSeconds / 60);
+  const densityKgPerMin = totalWorkingVolume / durationMinutes;
+  const densityBonus = Math.min(1, densityKgPerMin / 250) * 0.035;
+
+  const epocRate = Math.min(
+    0.13,
+    Math.max(
+      0.03,
+      0.06 * epocRpeMultiplier * muscleMassFactor + densityBonus
+    )
+  );
+
+  const epocKcal = Math.round(activeKcal * epocRate * 10) / 10;
   const totalKcal = Math.round((sessionKcal + epocKcal) * 10) / 10;
 
   return {
@@ -199,6 +276,6 @@ export function calculateWorkoutCalories(params: CaloricCalculationParams): Calo
     activeSeconds: Math.round(activeSeconds),
     restSeconds: Math.round(restSeconds),
     avgRpe,
-    epocPercentage: Math.round(clampedEpocFactor * 1000) / 10,
+    epocPercentage: Math.round(epocRate * 1000) / 10,
   };
 }

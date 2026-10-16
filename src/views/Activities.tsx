@@ -9,6 +9,7 @@ import {
   type MuscleReadinessResponse,
 } from "@/lib/api";
 import MuscleReadinessWidget from "@/components/activities/MuscleReadinessWidget";
+import LoadProgressionWidget from "@/components/activities/LoadProgressionWidget";
 import WorkoutCard from "@/components/activities/WorkoutCard";
 import {
   Dumbbell,
@@ -158,6 +159,9 @@ export default function Activities() {
 
       {/* Muscle Readiness Widget */}
       <MuscleReadinessWidget readiness={readiness} isLoading={isLoadingReadiness} />
+
+      {/* Load Progression Widget */}
+      <LoadProgressionWidget />
 
       {/* Summary KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
