@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import LoadProgressionWidget from "../LoadProgressionWidget";
 import { api } from "@/lib/api";
 import "@/lib/i18n";
@@ -84,5 +84,52 @@ describe("LoadProgressionWidget Component", () => {
     await waitFor(() => {
       expect(screen.queryByText("Supino Reto (Barra)")).not.toBeInTheDocument();
     });
+  });
+
+  it("toggles collapse and expand when clicking the collapse button", async () => {
+    vi.mocked(api.getWorkoutProgressions).mockResolvedValue({
+      period: "1m",
+      totalPrsInPeriod: 1,
+      exercisesProgressedCount: 1,
+      items: [
+        {
+          canonicalKey: "bench-press",
+          title: "Supino Reto (Barra)",
+          primaryMuscleGroup: "chest",
+          isAssisted: false,
+          startWeightKg: 80,
+          currentWeightKg: 85,
+          deltaWeightKg: 5,
+          pctChange: 6.3,
+          bestWeightKg: 85,
+          bestRepsAtWeight: 8,
+          bestEst1RmKg: 107.7,
+          prCountInPeriod: 1,
+          lastProgressedAt: "2026-10-14T10:00:00Z",
+        },
+      ],
+    });
+
+    render(<LoadProgressionWidget />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Supino Reto (Barra)")).toBeInTheDocument();
+    });
+
+    // Find collapse button
+    const collapseBtn = screen.getByRole("button", { name: /Recolher|Collapse/i });
+    expect(collapseBtn).toBeInTheDocument();
+
+    // Click to collapse
+    fireEvent.click(collapseBtn);
+    expect(screen.queryByText("Supino Reto (Barra)")).not.toBeInTheDocument();
+
+    // Find expand button
+    const expandBtn = screen.getByRole("button", { name: /Expandir|Expand/i });
+    expect(expandBtn).toBeInTheDocument();
+
+    // Click to expand
+    fireEvent.click(expandBtn);
+    expect(screen.getByText("Supino Reto (Barra)")).toBeInTheDocument();
   });
 });

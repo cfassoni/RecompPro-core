@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import MuscleReadinessWidget from "../MuscleReadinessWidget";
 import type { MuscleReadinessResponse } from "@/lib/api";
 import "@/lib/i18n";
@@ -78,5 +78,27 @@ describe("MuscleReadinessWidget Component", () => {
     expect(screen.getByText(/Chest and Back are fully recovered/i)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /View Workouts/i });
     expect(link).toHaveAttribute("href", "/activities");
+  });
+
+  it("toggles collapse and expand when clicking the collapse button in full view", () => {
+    render(<MuscleReadinessWidget readiness={mockReadiness} isLoading={false} compact={false} />);
+
+    expect(screen.getByText(/Chest and Back are fully recovered/i)).toBeInTheDocument();
+
+    // Click collapse
+    const collapseBtn = screen.getByRole("button", { name: /Recolher|Collapse/i });
+    expect(collapseBtn).toBeInTheDocument();
+    fireEvent.click(collapseBtn);
+
+    // Body should be hidden
+    expect(screen.queryByText(/Chest and Back are fully recovered/i)).not.toBeInTheDocument();
+
+    // Click expand
+    const expandBtn = screen.getByRole("button", { name: /Expandir|Expand/i });
+    expect(expandBtn).toBeInTheDocument();
+    fireEvent.click(expandBtn);
+
+    // Body should be visible again
+    expect(screen.getByText(/Chest and Back are fully recovered/i)).toBeInTheDocument();
   });
 });

@@ -10,6 +10,8 @@ import {
   Loader2,
   Sparkles,
   Dumbbell,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 type PeriodOption = "all" | "1m" | "3m" | "6m" | "1y";
@@ -21,6 +23,7 @@ export default function LoadProgressionWidget() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1m");
   const [data, setData] = useState<WorkoutProgressionsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -54,9 +57,9 @@ export default function LoadProgressionWidget() {
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 shadow-xs space-y-5">
+    <div className={`bg-card border border-border rounded-2xl p-6 shadow-xs transition-all ${isCollapsed ? "" : "space-y-5"}`}>
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isCollapsed ? "" : "border-b border-border pb-4"}`}>
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
             <Trophy className="h-5 w-5" />
@@ -79,26 +82,40 @@ export default function LoadProgressionWidget() {
           </div>
         </div>
 
-        {/* Time Horizon Filter Buttons (All, 1M, 3M, 6M, 1Y) */}
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl self-start sm:self-auto border border-border/50">
-          {PERIODS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setSelectedPeriod(key)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                selectedPeriod === key
-                  ? "bg-card text-foreground shadow-xs border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t(`history.period_${key}`) || key.toUpperCase()}
-            </button>
-          ))}
+        {/* Time Horizon Filter Buttons & Collapse Button */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50">
+            {PERIODS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelectedPeriod(key)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  selectedPeriod === key
+                    ? "bg-card text-foreground shadow-xs border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t(`history.period_${key}`) || key.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+            aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
+            title={isCollapsed ? t("common.expand") : t("common.collapse")}
+          >
+            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
         </div>
       </div>
 
-      {/* Content */}
+      {!isCollapsed && (
+        <>
+          {/* Content */}
       {isLoading ? (
         <div className="py-12 flex flex-col items-center justify-center text-muted-foreground gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
@@ -198,6 +215,8 @@ export default function LoadProgressionWidget() {
             })}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

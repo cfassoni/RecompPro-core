@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import type { MuscleReadinessResponse } from "@/lib/api";
@@ -12,6 +13,8 @@ import {
   ArrowRight,
   Info,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface MuscleReadinessWidgetProps {
@@ -26,6 +29,7 @@ export default function MuscleReadinessWidget({
   compact = false,
 }: MuscleReadinessWidgetProps) {
   const { t } = useTranslation();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const getStatusBadge = (status: "ready" | "recovering" | "exhausted") => {
     switch (status) {
@@ -199,9 +203,9 @@ export default function MuscleReadinessWidget({
 
   // FULL VIEW (ACTIVITIES PAGE)
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 shadow-xs space-y-6">
+    <div className={`bg-card border border-border rounded-2xl p-6 shadow-xs transition-all ${isCollapsed ? "" : "space-y-6"}`}>
       {/* Top Banner: Overall Status + Scientific context */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${isCollapsed ? "" : "border-b border-border pb-5"}`}>
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold">
             <Activity className="h-6 w-6" />
@@ -222,21 +226,35 @@ export default function MuscleReadinessWidget({
           </div>
         </div>
 
-        {/* User Biometric Adaptation Badge */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground self-start md:self-auto">
-          <Info className="h-4 w-4 text-primary shrink-0" />
-          <span>
-            {t("activities.readiness.biometricModulation", {
-              gender: readiness.userProfile.gender,
-              age: readiness.userProfile.age ?? "—",
-              weight: readiness.userProfile.effectiveWeightKg.toFixed(1),
-            })}
-          </span>
+        {/* User Biometric Adaptation Badge & Collapse Button */}
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground">
+            <Info className="h-4 w-4 text-primary shrink-0" />
+            <span>
+              {t("activities.readiness.biometricModulation", {
+                gender: readiness.userProfile.gender,
+                age: readiness.userProfile.age ?? "—",
+                weight: readiness.userProfile.effectiveWeightKg.toFixed(1),
+              })}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+            aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
+            title={isCollapsed ? t("common.expand") : t("common.collapse")}
+          >
+            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
         </div>
       </div>
 
-      {/* Smart Recommendation Banner */}
-      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3">
+      {!isCollapsed && (
+        <>
+          {/* Smart Recommendation Banner */}
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <div className="space-y-1">
           <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
@@ -365,6 +383,8 @@ export default function MuscleReadinessWidget({
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }
