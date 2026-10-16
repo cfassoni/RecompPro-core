@@ -753,7 +753,11 @@
       "quads": "Quadriceps",
       "hamstrings_glutes": "Hamstrings & Glutes",
       "shoulders": "Shoulders",
-      "arms": "Arms (Biceps/Triceps)"
+      "biceps": "Biceps",
+      "triceps": "Triceps",
+      "calves": "Calves",
+      "core": "Abs & Core",
+      "arms": "Arms"
     },
     "readiness": {
       "title": "Muscle Group Readiness",

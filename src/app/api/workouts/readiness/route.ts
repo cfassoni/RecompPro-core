@@ -14,14 +14,17 @@ import type { MuscleReadinessResponse, MuscleReadinessItem } from "@/lib/api";
 const MUSCLE_NAMES: Record<MuscleGroupKey, { en: string; pt: string; es: string }> = {
   chest: { en: "Chest", pt: "Peito", es: "Pecho" },
   back: { en: "Back", pt: "Costas", es: "Espalda" },
+  shoulders: { en: "Shoulders", pt: "Ombros", es: "Hombros" },
+  biceps: { en: "Biceps", pt: "Bíceps", es: "Bíceps" },
+  triceps: { en: "Triceps", pt: "Tríceps", es: "Tríceps" },
   quads: { en: "Quadriceps", pt: "Quadríceps", es: "Cuádriceps" },
   hamstrings_glutes: {
     en: "Hamstrings & Glutes",
     pt: "Posteriores e Glúteos",
     es: "Isquiotibiales y Glúteos",
   },
-  shoulders: { en: "Shoulders", pt: "Ombros", es: "Hombros" },
-  arms: { en: "Arms", pt: "Braços", es: "Brazos" },
+  calves: { en: "Calves", pt: "Panturrilhas", es: "Pantorrillas" },
+  core: { en: "Abs & Core", pt: "Abdômen & Core", es: "Abdomen y Core" },
 };
 
 function formatMuscleName(group: MuscleGroupKey, lang: string): string {

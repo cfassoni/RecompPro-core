@@ -158,7 +158,7 @@ export default function MuscleReadinessWidget({
           </div>
 
           {/* Mini Muscle Bars */}
-          <div className="space-y-2.5 my-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 my-2">
             {readiness.muscleGroups.map((mg) => {
               const mgBadge = getStatusBadge(mg.status);
               return (

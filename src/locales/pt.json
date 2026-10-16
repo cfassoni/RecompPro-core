@@ -753,7 +753,11 @@
       "quads": "Quadríceps",
       "hamstrings_glutes": "Posteriores e Glúteos",
       "shoulders": "Ombros",
-      "arms": "Braços (Bíceps/Tríceps)"
+      "biceps": "Bíceps",
+      "triceps": "Tríceps",
+      "calves": "Panturrilhas",
+      "core": "Abdômen & Core",
+      "arms": "Braços"
     },
     "readiness": {
       "title": "Prontidão por Grupos Musculares",

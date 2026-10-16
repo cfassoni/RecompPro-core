@@ -14,10 +14,13 @@
 export type MuscleGroupKey =
   | "chest"
   | "back"
+  | "shoulders"
+  | "biceps"
+  | "triceps"
   | "quads"
   | "hamstrings_glutes"
-  | "shoulders"
-  | "arms";
+  | "calves"
+  | "core";
 
 export type MuscleGroupCategory = "large" | "small";
 
@@ -196,10 +199,16 @@ export function calculateAgeInYears(
 /**
  * Categorizes a muscle group into Large vs Small.
  * Large: chest, back, quads, hamstrings/glutes
- * Small: shoulders, arms
+ * Small: shoulders, biceps, triceps, calves, core
  */
 export function getMuscleGroupCategory(group: MuscleGroupKey): MuscleGroupCategory {
-  if (group === "shoulders" || group === "arms") {
+  if (
+    group === "shoulders" ||
+    group === "biceps" ||
+    group === "triceps" ||
+    group === "calves" ||
+    group === "core"
+  ) {
     return "small";
   }
   return "large";
@@ -782,7 +791,7 @@ export function calculateEst1Rm(weightKg: number, reps: number): number {
 }
 
 /**
- * Maps raw Hevy primary muscle group strings into the 6 core tracked categories.
+ * Maps raw Hevy primary muscle group strings into the 9 core tracked categories.
  */
 export function mapToMuscleGroupKey(
   rawMuscleGroup?: string | null
@@ -797,32 +806,37 @@ export function mapToMuscleGroupKey(
     n.includes("back") ||
     n.includes("lat") ||
     n.includes("trap") ||
-    n.includes("rhomboid") ||
-    n.includes("spine")
+    n.includes("rhomboid")
   ) {
     return "back";
   }
   if (n.includes("quad") || n.includes("thigh") || n === "legs") {
     return "quads";
   }
-  if (
-    n.includes("glute") ||
-    n.includes("hamstring") ||
-    n.includes("calf") ||
-    n.includes("calves")
-  ) {
+  if (n.includes("calf") || n.includes("calves")) {
+    return "calves";
+  }
+  if (n.includes("glute") || n.includes("hamstring")) {
     return "hamstrings_glutes";
   }
   if (n.includes("shoulder") || n.includes("deltoid")) {
     return "shoulders";
   }
+  if (n.includes("bicep") || n.includes("forearm")) {
+    return "biceps";
+  }
+  if (n.includes("tricep")) {
+    return "triceps";
+  }
   if (
-    n.includes("bicep") ||
-    n.includes("tricep") ||
-    n.includes("arm") ||
-    n.includes("forearm")
+    n.includes("abs") ||
+    n.includes("abdom") ||
+    n.includes("core") ||
+    n.includes("lower_back") ||
+    n.includes("lower back") ||
+    n.includes("spine")
   ) {
-    return "arms";
+    return "core";
   }
 
   return null;
@@ -841,6 +855,88 @@ export function inferMuscleGroup(
   if (!title) return null;
   const t = title.toLowerCase();
 
+  // Calves
+  if (
+    t.includes("calf") ||
+    t.includes("calves") ||
+    t.includes("panturrilha") ||
+    t.includes("gêmeos") ||
+    t.includes("soleo") ||
+    t.includes("sóleo")
+  ) {
+    return "calves";
+  }
+
+  // Core & Abdominals
+  if (
+    t.includes("abdom") ||
+    t.includes("abs") ||
+    t.includes("core") ||
+    t.includes("prancha") ||
+    t.includes("plank") ||
+    t.includes("crunch") ||
+    t.includes("hiperextensão") ||
+    t.includes("hyperextension") ||
+    t.includes("lombar") ||
+    t.includes("lower back")
+  ) {
+    return "core";
+  }
+
+  // Hamstrings & Glutes (checked before general leg or biceps)
+  if (
+    t.includes("hamstring") ||
+    t.includes("posterior") ||
+    t.includes("glute") ||
+    t.includes("glúteo") ||
+    t.includes("stiff") ||
+    t.includes("rdl") ||
+    t.includes("romanian") ||
+    t.includes("flexora") ||
+    t.includes("curl leg") ||
+    t.includes("leg curl") ||
+    t.includes("hip thrust") ||
+    t.includes("elevação pélvica") ||
+    t.includes("pelvic")
+  ) {
+    return "hamstrings_glutes";
+  }
+
+  // Triceps (checked before general arms or chest)
+  if (
+    t.includes("tricep") ||
+    t.includes("tríceps") ||
+    t.includes("skull crusher") ||
+    t.includes("testa") ||
+    t.includes("francês") ||
+    t.includes("french") ||
+    t.includes("pushdown") ||
+    t.includes("corda") ||
+    t.includes("coice") ||
+    t.includes("kickback") ||
+    t.includes("pulley tríceps") ||
+    t.includes("supino fechado") ||
+    t.includes("close grip bench")
+  ) {
+    return "triceps";
+  }
+
+  // Biceps (checked before general arms)
+  if (
+    t.includes("bicep") ||
+    t.includes("bíceps") ||
+    t.includes("rosca") ||
+    t.includes("curl") ||
+    t.includes("martelo") ||
+    t.includes("scott") ||
+    t.includes("spider") ||
+    t.includes("antebraço") ||
+    t.includes("forearm") ||
+    t.includes("punho")
+  ) {
+    return "biceps";
+  }
+
   // Chest
   if (
     t.includes("chest") ||
@@ -855,32 +951,11 @@ export function inferMuscleGroup(
     t.includes("pushup") ||
     t.includes("fly") ||
     t.includes("crucifixo") ||
-    t.includes("mergulho")
+    t.includes("mergulho") ||
+    t.includes("dip") ||
+    t.includes("paralela")
   ) {
     return "chest";
-  }
-
-  // Hamstrings & Glutes & Calves
-  if (
-    t.includes("hamstring") ||
-    t.includes("posterior") ||
-    t.includes("glute") ||
-    t.includes("glúteo") ||
-    t.includes("stiff") ||
-    t.includes("rdl") ||
-    t.includes("romanian") ||
-    t.includes("flexora") ||
-    t.includes("curl leg") ||
-    t.includes("leg curl") ||
-    t.includes("hip thrust") ||
-    t.includes("elevação pélvica") ||
-    t.includes("pelvic") ||
-    t.includes("calf") ||
-    t.includes("calves") ||
-    t.includes("panturrilha") ||
-    t.includes("gêmeos")
-  ) {
-    return "hamstrings_glutes";
   }
 
   // Back
@@ -943,31 +1018,10 @@ export function inferMuscleGroup(
     t.includes("face pull") ||
     t.includes("arnold") ||
     t.includes("militar") ||
-    t.includes("military")
+    t.includes("military") ||
+    t.includes("rear delt")
   ) {
     return "shoulders";
-  }
-
-  // Arms
-  if (
-    t.includes("bicep") ||
-    t.includes("bíceps") ||
-    t.includes("tricep") ||
-    t.includes("tríceps") ||
-    t.includes("arm") ||
-    t.includes("braço") ||
-    t.includes("rosca") ||
-    t.includes("curl") ||
-    t.includes("skull crusher") ||
-    t.includes("testa") ||
-    t.includes("francês") ||
-    t.includes("pushdown") ||
-    t.includes("corda") ||
-    t.includes("coice") ||
-    t.includes("antebraço") ||
-    t.includes("forearm")
-  ) {
-    return "arms";
   }
 
   return null;
@@ -1000,10 +1054,13 @@ export function computeReadinessSummary(
   const groups: MuscleGroupKey[] = [
     "chest",
     "back",
+    "shoulders",
+    "biceps",
+    "triceps",
     "quads",
     "hamstrings_glutes",
-    "shoulders",
-    "arms",
+    "calves",
+    "core",
   ];
 
   const sortedWorkouts = [...workoutsHistory].sort(
@@ -1025,13 +1082,36 @@ export function computeReadinessSummary(
 
   for (const group of groups) {
     const category = getMuscleGroupCategory(group);
-    let latestTrainedAt: Date | null = null;
-    let setsCount = 0;
-    let totalRpe = 0;
-    let setsWithRpe = 0;
-    let sessionVolumeKg = 0;
+
+    let latestAnyTrainedAt: Date | null = null;
+    let latestAnySetsCount = 0;
+    let latestAnyAvgRpe: number | null = null;
+    let latestAnyVolumeKg = 0;
+    let latestAnyHoursElapsed: number | null = null;
+    let latestAnyRecommendedHours = 0;
+
+    let peakCandidate: {
+      trainedAt: Date;
+      setsCount: number;
+      avgRpe: number | null;
+      sessionVolumeKg: number;
+      hoursElapsed: number;
+      recommendedHours: number;
+      remainingRecoveryHours: number;
+      readinessPercentage: number;
+      status: "ready" | "recovering" | "exhausted";
+      clinicalStatus: ReadinessStatus;
+      recommendedVolumeMultiplier: 1.0 | 0.8 | 0.0;
+    } | null = null;
 
     for (const w of sortedWorkouts) {
+      const msDiff = now.getTime() - w.endTime.getTime();
+      const hoursSince = Math.max(0, msDiff / (1000 * 60 * 60));
+      // Only inspect sessions within 96h active MPS window once a candidate has been recorded
+      if (hoursSince > 96 && latestAnyTrainedAt !== null) {
+        break;
+      }
+
       let groupSetsInWorkout = 0;
       let groupRpeInWorkout = 0;
       let groupRpeCountInWorkout = 0;
@@ -1069,59 +1149,104 @@ export function computeReadinessSummary(
       }
 
       if (groupSetsInWorkout > 0) {
-        latestTrainedAt = w.endTime;
-        setsCount = groupSetsInWorkout;
-        totalRpe = groupRpeInWorkout;
-        setsWithRpe = groupRpeCountInWorkout;
-        sessionVolumeKg = Math.round(groupVolumeInWorkout * 10) / 10;
-        break;
+        const workoutAvgRpe =
+          groupRpeCountInWorkout > 0
+            ? Math.round((groupRpeInWorkout / groupRpeCountInWorkout) * 10) / 10
+            : null;
+
+        const recHours = calculateUnifiedRecoveryHours(
+          groupSetsInWorkout,
+          { mode: "rpe", avgRpe: workoutAvgRpe ?? 8.0 },
+          biologicalFactors,
+          category
+        );
+
+        const hoursElapsed = Math.max(
+          0,
+          Math.round(((now.getTime() - w.endTime.getTime()) / (1000 * 60 * 60)) * 10) / 10
+        );
+
+        const evaluation = evaluateMuscleReadiness(
+          hoursElapsed,
+          recHours,
+          biologicalFactors?.reportedSoreness ?? 0
+        );
+
+        const remainingHours = Math.max(0, recHours - hoursElapsed);
+
+        let evalStatus: "ready" | "recovering" | "exhausted" = "ready";
+        if (evaluation.status === "READY") {
+          evalStatus = "ready";
+        } else if (evaluation.status === "RECOVERING_TRAINABLE") {
+          evalStatus = "recovering";
+        } else {
+          evalStatus = "exhausted";
+        }
+
+        if (latestAnyTrainedAt === null) {
+          latestAnyTrainedAt = w.endTime;
+          latestAnySetsCount = groupSetsInWorkout;
+          latestAnyAvgRpe = workoutAvgRpe;
+          latestAnyVolumeKg = Math.round(groupVolumeInWorkout * 10) / 10;
+          latestAnyHoursElapsed = hoursElapsed;
+          latestAnyRecommendedHours = recHours;
+        }
+
+        // Track session with highest remaining residual recovery time
+        if (
+          peakCandidate === null ||
+          remainingHours > peakCandidate.remainingRecoveryHours
+        ) {
+          peakCandidate = {
+            trainedAt: w.endTime,
+            setsCount: groupSetsInWorkout,
+            avgRpe: workoutAvgRpe,
+            sessionVolumeKg: Math.round(groupVolumeInWorkout * 10) / 10,
+            hoursElapsed,
+            recommendedHours: recHours,
+            remainingRecoveryHours: remainingHours,
+            readinessPercentage: evaluation.completionPercentage,
+            status: evalStatus,
+            clinicalStatus: evaluation.status,
+            recommendedVolumeMultiplier: evaluation.recommendedVolumeMultiplier,
+          };
+        }
       }
     }
 
-    const avgRpe =
-      setsWithRpe > 0 ? Math.round((totalRpe / setsWithRpe) * 10) / 10 : null;
-
-    const recommendedHours =
-      setsCount > 0
-        ? calculateUnifiedRecoveryHours(
-            setsCount,
-            { mode: "rpe", avgRpe: avgRpe ?? 8.0 },
-            biologicalFactors,
-            category
-          )
-        : 0;
-
+    let latestTrainedAt: Date | null = null;
+    let setsCount = 0;
+    let avgRpe: number | null = null;
+    let sessionVolumeKg = 0;
     let hoursElapsed: number | null = null;
+    let recommendedHours = 0;
     let readinessPercentage = 100;
     let status: "ready" | "recovering" | "exhausted" = "ready";
     let clinicalStatus: ReadinessStatus = "READY";
     let recommendedVolumeMultiplier: 1.0 | 0.8 | 0.0 = 1.0;
 
-    if (latestTrainedAt) {
-      hoursElapsed = Math.max(
-        0,
-        Math.round(
-          ((now.getTime() - latestTrainedAt.getTime()) / (1000 * 60 * 60)) * 10
-        ) / 10
-      );
-
-      const evaluation = evaluateMuscleReadiness(
-        hoursElapsed,
-        recommendedHours,
-        biologicalFactors?.reportedSoreness ?? 0
-      );
-
-      clinicalStatus = evaluation.status;
-      readinessPercentage = evaluation.completionPercentage;
-      recommendedVolumeMultiplier = evaluation.recommendedVolumeMultiplier;
-
-      if (clinicalStatus === "READY") {
-        status = "ready";
-      } else if (clinicalStatus === "RECOVERING_TRAINABLE") {
-        status = "recovering";
-      } else {
-        status = "exhausted";
-      }
+    if (peakCandidate && peakCandidate.remainingRecoveryHours > 0) {
+      latestTrainedAt = peakCandidate.trainedAt;
+      setsCount = peakCandidate.setsCount;
+      avgRpe = peakCandidate.avgRpe;
+      sessionVolumeKg = peakCandidate.sessionVolumeKg;
+      hoursElapsed = peakCandidate.hoursElapsed;
+      recommendedHours = peakCandidate.recommendedHours;
+      readinessPercentage = peakCandidate.readinessPercentage;
+      status = peakCandidate.status;
+      clinicalStatus = peakCandidate.clinicalStatus;
+      recommendedVolumeMultiplier = peakCandidate.recommendedVolumeMultiplier;
+    } else if (latestAnyTrainedAt) {
+      latestTrainedAt = latestAnyTrainedAt;
+      setsCount = latestAnySetsCount;
+      avgRpe = latestAnyAvgRpe;
+      sessionVolumeKg = latestAnyVolumeKg;
+      hoursElapsed = latestAnyHoursElapsed;
+      recommendedHours = latestAnyRecommendedHours;
+      readinessPercentage = 100;
+      status = "ready";
+      clinicalStatus = "READY";
+      recommendedVolumeMultiplier = 1.0;
     }
 
     muscles[group] = {

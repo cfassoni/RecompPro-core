@@ -28,15 +28,17 @@ describe("Unified Muscle Recovery & Double Progression Engine (recovery.ts)", ()
   });
 
   describe("mapToMuscleGroupKey & inferMuscleGroup", () => {
-    it("should map Hevy raw muscle groups to the 6 core categories", () => {
+    it("should map Hevy raw muscle groups to the 9 core categories", () => {
       expect(mapToMuscleGroupKey("Chest")).toBe("chest");
       expect(mapToMuscleGroupKey("Lats")).toBe("back");
       expect(mapToMuscleGroupKey("Quadriceps")).toBe("quads");
       expect(mapToMuscleGroupKey("Glutes")).toBe("hamstrings_glutes");
       expect(mapToMuscleGroupKey("Hamstrings")).toBe("hamstrings_glutes");
       expect(mapToMuscleGroupKey("Shoulders")).toBe("shoulders");
-      expect(mapToMuscleGroupKey("Biceps")).toBe("arms");
-      expect(mapToMuscleGroupKey("Triceps")).toBe("arms");
+      expect(mapToMuscleGroupKey("Biceps")).toBe("biceps");
+      expect(mapToMuscleGroupKey("Triceps")).toBe("triceps");
+      expect(mapToMuscleGroupKey("Calves")).toBe("calves");
+      expect(mapToMuscleGroupKey("Abs")).toBe("core");
       expect(mapToMuscleGroupKey("Unknown")).toBeNull();
     });
 
@@ -51,8 +53,10 @@ describe("Unified Muscle Recovery & Double Progression Engine (recovery.ts)", ()
       expect(inferMuscleGroup(null, "Romanian Deadlift (RDL)")).toBe("hamstrings_glutes");
       expect(inferMuscleGroup(null, "Desenvolvimento Halteres")).toBe("shoulders");
       expect(inferMuscleGroup(null, "Overhead Press")).toBe("shoulders");
-      expect(inferMuscleGroup(null, "Rosca Direta")).toBe("arms");
-      expect(inferMuscleGroup(null, "Tríceps Corda")).toBe("arms");
+      expect(inferMuscleGroup(null, "Rosca Direta")).toBe("biceps");
+      expect(inferMuscleGroup(null, "Tríceps Corda")).toBe("triceps");
+      expect(inferMuscleGroup(null, "Panturrilha Sentado")).toBe("calves");
+      expect(inferMuscleGroup(null, "Abdominal Crunch")).toBe("core");
       expect(inferMuscleGroup(null, "Exercício Genérico")).toBeNull();
     });
   });
@@ -399,6 +403,144 @@ describe("Unified Muscle Recovery & Double Progression Engine (recovery.ts)", ()
       expect(summary.readyGroups).toContain("back");
       expect(summary.recoveringGroups).toContain("chest");
       expect(summary.recommendationKey).toBe("partial_ready");
+    });
+
+    it("should guarantee antagonist independence between biceps and triceps", () => {
+      const now = new Date("2026-10-13T12:00:00Z");
+      const pushWorkoutTime = new Date("2026-10-13T00:00:00Z"); // 12 hours ago (Push day)
+
+      const history = [
+        {
+          endTime: pushWorkoutTime,
+          exercises: [
+            {
+              title: "Tríceps Corda no Pulley",
+              primaryMuscleGroup: "Triceps",
+              sets: [
+                { type: "normal", reps: 12, rpe: 9, weightKg: 30 },
+                { type: "normal", reps: 10, rpe: 9.5, weightKg: 30 },
+                { type: "normal", reps: 8, rpe: 10, weightKg: 30 },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const summary = computeReadinessSummary(
+        history,
+        { gender: "male", birthday: "1995-01-01" },
+        now
+      );
+
+      // Triceps was stimulated in Push day (12h ago, still actively repairing)
+      expect(summary.muscles.triceps.hoursElapsed).toBe(12);
+      expect(summary.muscles.triceps.lastSessionSets).toBe(3);
+      expect(summary.muscles.triceps.muscleCategory).toBe("small");
+      expect(summary.recoveringGroups).toContain("triceps");
+
+      // Antagonist Biceps is 100% READY for Pull day!
+      expect(summary.muscles.biceps.status).toBe("ready");
+      expect(summary.muscles.biceps.clinicalStatus).toBe("READY");
+      expect(summary.muscles.biceps.readinessPercentage).toBe(100);
+      expect(summary.readyGroups).toContain("biceps");
+    });
+
+    it("should track calves and core independently from hamstrings and back", () => {
+      const now = new Date("2026-10-13T12:00:00Z");
+      const yesterday = new Date("2026-10-12T12:00:00Z"); // 24 hours ago
+
+      const history = [
+        {
+          endTime: yesterday,
+          exercises: [
+            {
+              title: "Panturrilha no Leg Press",
+              primaryMuscleGroup: "Calves",
+              sets: [
+                { type: "normal", reps: 15, rpe: 8.5, weightKg: 120 },
+                { type: "normal", reps: 15, rpe: 9, weightKg: 120 },
+                { type: "normal", reps: 12, rpe: 9.5, weightKg: 120 },
+              ],
+            },
+            {
+              title: "Abdominal Crunch na Polia",
+              primaryMuscleGroup: "Abs",
+              sets: [
+                { type: "normal", reps: 15, rpe: 8, weightKg: 40 },
+                { type: "normal", reps: 12, rpe: 9, weightKg: 40 },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const summary = computeReadinessSummary(
+        history,
+        { gender: "male", birthday: "1995-01-01" },
+        now
+      );
+
+      // Calves stimulated
+      expect(summary.muscles.calves.lastSessionSets).toBe(3);
+      expect(summary.muscles.calves.muscleCategory).toBe("small");
+
+      // Hamstrings & Glutes remained untouched and 100% ready
+      expect(summary.muscles.hamstrings_glutes.status).toBe("ready");
+      expect(summary.muscles.hamstrings_glutes.readinessPercentage).toBe(100);
+
+      // Core stimulated
+      expect(summary.muscles.core.lastSessionSets).toBe(2);
+      expect(summary.muscles.core.muscleCategory).toBe("small");
+
+      // Back remained untouched and 100% ready
+      expect(summary.muscles.back.status).toBe("ready");
+      expect(summary.muscles.back.readinessPercentage).toBe(100);
+    });
+
+    it("should retain peak residual fatigue across multiple sessions within 96h window", () => {
+      const now = new Date("2026-10-13T12:00:00Z");
+      const heavySession = new Date("2026-10-12T20:00:00Z"); // 16 hours ago (10 heavy sets, ~37.3h recovery, ~21.3h remaining)
+      const lightSession = new Date("2026-10-13T08:00:00Z"); // 4 hours ago (1 light set, 20h recovery, 16h remaining)
+
+      const history = [
+        {
+          endTime: lightSession,
+          exercises: [
+            {
+              title: "Elevação Lateral (Halteres)",
+              primaryMuscleGroup: "Shoulders",
+              sets: [{ type: "normal", reps: 12, rpe: 6, weightKg: 10 }],
+            },
+          ],
+        },
+        {
+          endTime: heavySession,
+          exercises: [
+            {
+              title: "Desenvolvimento Militar (Barra)",
+              primaryMuscleGroup: "Shoulders",
+              sets: Array.from({ length: 10 }, () => ({
+                type: "normal",
+                reps: 8,
+                rpe: 9.5,
+                weightKg: 50,
+              })),
+            },
+          ],
+        },
+      ];
+
+      const summary = computeReadinessSummary(
+        history,
+        { gender: "male", birthday: "1995-01-01" },
+        now
+      );
+
+      // The heavy session imposes ~21.3h of remaining recovery vs 16h from the 1-set session.
+      // Therefore, the engine retains the peak residual fatigue of the 10-set session!
+      expect(summary.muscles.shoulders.lastSessionSets).toBe(10);
+      expect(summary.muscles.shoulders.hoursElapsed).toBe(16);
+      expect(summary.muscles.shoulders.status).not.toBe("ready");
     });
   });
 });

@@ -753,7 +753,11 @@
       "quads": "Cuádriceps",
       "hamstrings_glutes": "Isquiotibiales y Glúteos",
       "shoulders": "Hombros",
-      "arms": "Brazos (Bíceps/Tríceps)"
+      "biceps": "Bíceps",
+      "triceps": "Tríceps",
+      "calves": "Pantorrillas",
+      "core": "Abdomen y Core",
+      "arms": "Brazos"
     },
     "readiness": {
       "title": "Preparación por Grupos Musculares",
