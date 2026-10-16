@@ -784,6 +784,7 @@
       "widgetSubtitle": "Historical double progression records and load improvements across training sessions.",
       "prSingle": "PR",
       "prPlural": "PRs",
+      "pr1Rm": "Estimated 1RM PR",
       "prCountTooltip": "{{count}} personal records achieved in this workout",
       "exercisePrTooltip": "Personal record achieved on this exercise",
       "nextTarget": "Next",

@@ -134,6 +134,7 @@ export interface SetProgressionInfo {
   deltaReps: number | null;
   previousWeightKg: number | null;
   previousReps: number | null;
+  est1RmKg?: number | null;
   isAssisted?: boolean;
 }
 
@@ -1463,6 +1464,7 @@ export function computeHistoricalProgressions(
             deltaWeight = currentWeight - state.minAssistanceKg; // Negative delta
             state.minAssistanceKg = currentWeight;
             state.maxRepsAtBestWeight = currentReps;
+            state.maxEst1RmKg = Math.max(state.maxEst1RmKg, est1Rm);
           } else if (
             currentWeight === state.minAssistanceKg &&
             currentReps > state.maxRepsAtBestWeight
@@ -1471,6 +1473,7 @@ export function computeHistoricalProgressions(
             pType = "reps_pr";
             deltaReps = currentReps - state.maxRepsAtBestWeight;
             state.maxRepsAtBestWeight = currentReps;
+            state.maxEst1RmKg = Math.max(state.maxEst1RmKg, est1Rm);
           } else if (est1Rm > state.maxEst1RmKg) {
             isProg = true;
             pType = "1rm_pr";
@@ -1484,6 +1487,7 @@ export function computeHistoricalProgressions(
             deltaWeight = currentWeight - state.maxWeightKg;
             state.maxWeightKg = currentWeight;
             state.maxRepsAtBestWeight = currentReps;
+            state.maxEst1RmKg = Math.max(state.maxEst1RmKg, est1Rm);
           } else if (
             currentWeight === state.maxWeightKg &&
             currentReps > state.maxRepsAtBestWeight
@@ -1492,6 +1496,7 @@ export function computeHistoricalProgressions(
             pType = "reps_pr";
             deltaReps = currentReps - state.maxRepsAtBestWeight;
             state.maxRepsAtBestWeight = currentReps;
+            state.maxEst1RmKg = Math.max(state.maxEst1RmKg, est1Rm);
           } else if (est1Rm > state.maxEst1RmKg) {
             isProg = true;
             pType = "1rm_pr";
@@ -1517,6 +1522,7 @@ export function computeHistoricalProgressions(
             deltaReps,
             previousWeightKg: prevWeight,
             previousReps: prevReps,
+            est1RmKg: pType === "1rm_pr" ? est1Rm : undefined,
             isAssisted,
           };
           setsProgression.push(pInfo);

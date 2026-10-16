@@ -784,6 +784,7 @@
       "widgetSubtitle": "Récords históricos de doble progresión y evolución de carga a lo largo de las sesiones.",
       "prSingle": "PR",
       "prPlural": "PRs",
+      "pr1Rm": "Récord de 1RM Estimado",
       "prCountTooltip": "{{count}} récords personales logrados en este entrenamiento",
       "exercisePrTooltip": "Récord personal superado en este ejercicio",
       "nextTarget": "Siguiente",

@@ -136,6 +136,7 @@ export interface WorkoutSet {
   deltaWeightKg?: number | null;
   deltaReps?: number | null;
   previousWeightKg?: number | null;
+  est1RmKg?: number | null;
   isAssisted?: boolean;
 }
 

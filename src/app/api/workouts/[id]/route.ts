@@ -134,6 +134,7 @@ export const GET = withAuth(async (_req, { user, params }) => {
           deltaReps: setProg?.deltaReps ?? null,
           previousWeightKg: setProg?.previousWeightKg ?? null,
           previousReps: setProg?.previousReps ?? null,
+          est1RmKg: setProg?.est1RmKg ?? null,
           isAssisted,
         };
       });

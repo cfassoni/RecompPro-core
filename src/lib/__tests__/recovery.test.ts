@@ -289,6 +289,55 @@ describe("Unified Muscle Recovery & Double Progression Engine (recovery.ts)", ()
       expect(periodItems[0].prCountInPeriod).toBe(2);
     });
 
+    it("should not trigger duplicate PRs across sets with identical load and repetitions within the same session", () => {
+      const workouts = [
+        {
+          id: "w1",
+          startTime: "2026-10-01T10:00:00Z",
+          exercises: [
+            {
+              title: "Desenvolvimento de Ombros (Máquina de Anilhas)",
+              sets: [
+                { type: "normal", weightKg: 20, reps: 10 },
+                { type: "normal", weightKg: 20, reps: 10 },
+              ],
+            },
+          ],
+        },
+        {
+          id: "w2",
+          startTime: "2026-10-05T10:00:00Z",
+          exercises: [
+            {
+              title: "Desenvolvimento de Ombros (Máquina de Anilhas)",
+              sets: [
+                { type: "normal", weightKg: 24, reps: 10 }, // Set 1: Weight PR (+4 kg)
+                { type: "normal", weightKg: 24, reps: 10 }, // Set 2: Same load and reps -> MUST NOT duplicate PR!
+                { type: "normal", weightKg: 24, reps: 8 },  // Set 3: Lower reps -> NO PR
+              ],
+            },
+          ],
+        },
+      ];
+
+      const { workoutMap } = computeHistoricalProgressions(workouts);
+      const w2Summary = workoutMap.get("w2");
+      expect(w2Summary?.hasProgression).toBe(true);
+      expect(w2Summary?.totalPrCount).toBe(1); // Exactly 1 PR, not 2!
+
+      const ex = w2Summary?.exercises[0];
+      expect(ex?.progressionCount).toBe(1);
+      expect(ex?.setsProgression[0].isProgression).toBe(true);
+      expect(ex?.setsProgression[0].progressionType).toBe("weight_pr");
+      expect(ex?.setsProgression[0].deltaWeightKg).toBe(4);
+
+      expect(ex?.setsProgression[1].isProgression).toBe(false);
+      expect(ex?.setsProgression[1].progressionType).toBeNull();
+
+      expect(ex?.setsProgression[2].isProgression).toBe(false);
+      expect(ex?.setsProgression[2].progressionType).toBeNull();
+    });
+
     // Criterion #10: Inverted Polarity for Graviton / Assisted Exercises
     it("Criterion #10: decreasing assistance on Graviton awards gold medal and prescribes load increase by reducing assistance", () => {
       const workouts = [

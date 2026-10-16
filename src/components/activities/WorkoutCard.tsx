@@ -337,10 +337,12 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
                                         title={
                                           s.isAssisted
                                             ? `${s.deltaWeightKg} kg ${t("activities.progression.assistedLabel")}`
-                                            : s.deltaWeightKg
+                                            : s.progressionType === "weight_pr" && s.deltaWeightKg
                                             ? `+${s.deltaWeightKg} kg`
-                                            : s.deltaReps
+                                            : s.progressionType === "reps_pr" && s.deltaReps
                                             ? `+${s.deltaReps} reps`
+                                            : s.progressionType === "1rm_pr"
+                                            ? `${t("activities.progression.pr1Rm")}${s.est1RmKg ? `: ${s.est1RmKg} kg` : ""}`
                                             : t("activities.progression.prSingle")
                                         }
                                       >
