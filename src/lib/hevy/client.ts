@@ -84,6 +84,7 @@ export interface HevyClientOptions {
   baseUrl?: string;
   fetchFn?: typeof fetch;
   maxRetries?: number;
+  timeoutMs?: number;
 }
 
 export class HevyApiError extends Error {
@@ -103,6 +104,7 @@ export class HevyClient {
   private readonly baseUrl: string;
   private readonly fetchFn: typeof fetch;
   private readonly maxRetries: number;
+  private readonly timeoutMs?: number;
 
   constructor(options: HevyClientOptions) {
     if (!options.apiKey) {
@@ -112,6 +114,7 @@ export class HevyClient {
     this.baseUrl = (options.baseUrl || "https://api.hevyapp.com/v1").replace(/\/+$/, "");
     this.fetchFn = options.fetchFn || globalThis.fetch;
     this.maxRetries = options.maxRetries ?? 3;
+    this.timeoutMs = options.timeoutMs;
   }
 
   private async request<T>(endpoint: string, init?: RequestInit): Promise<T> {
@@ -121,8 +124,15 @@ export class HevyClient {
     while (attempt <= this.maxRetries) {
       attempt++;
       try {
+        const timeoutSignal = this.timeoutMs ? AbortSignal.timeout(this.timeoutMs) : undefined;
+        let signal: AbortSignal | undefined = timeoutSignal;
+        if (init?.signal) {
+          signal = timeoutSignal ? AbortSignal.any([init.signal, timeoutSignal]) : init.signal;
+        }
+
         const res = await this.fetchFn(url, {
           ...init,
+          signal,
           headers: {
             "Content-Type": "application/json",
             "api-key": this.apiKey,
@@ -226,5 +236,20 @@ export class HevyClient {
     return this.request<HevyPaginatedExerciseTemplates>(
       `/exercise_templates?page=${page}&pageSize=${clampedSize}`
     );
+  }
+
+  /**
+   * Retrieves a single exercise template by ID.
+   */
+  public async getExerciseTemplate(
+    exerciseTemplateId: string
+  ): Promise<HevyExerciseTemplate> {
+    const res = await this.request<
+      HevyExerciseTemplate | { exercise_template: HevyExerciseTemplate }
+    >(`/exercise_templates/${encodeURIComponent(exerciseTemplateId)}`);
+    if ("exercise_template" in res && res.exercise_template) {
+      return res.exercise_template;
+    }
+    return res as HevyExerciseTemplate;
   }
 }

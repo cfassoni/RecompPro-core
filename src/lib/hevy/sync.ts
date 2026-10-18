@@ -102,7 +102,8 @@ async function getUserBiometricContext(userId: number) {
  */
 export async function upsertHevyWorkout(
   workout: HevyWorkout,
-  userId: number
+  userId: number,
+  client?: HevyClient
 ): Promise<"inserted" | "updated"> {
   const biometrics = await getUserBiometricContext(userId);
 
@@ -129,9 +130,36 @@ export async function upsertHevyWorkout(
       let primaryMuscleGroup: string | null = null;
       let equipment: string | null = null;
       if (ex.exercise_template_id) {
-        const tpl = await db.query.exerciseTemplates.findFirst({
+        let tpl = await db.query.exerciseTemplates.findFirst({
           where: eq(exerciseTemplates.id, ex.exercise_template_id),
         });
+        if (!tpl && client) {
+          try {
+            const fetched = await client.getExerciseTemplate(ex.exercise_template_id);
+            if (fetched && fetched.id) {
+              const secondaryJson = fetched.secondary_muscle_groups
+                ? JSON.stringify(fetched.secondary_muscle_groups)
+                : null;
+              await db
+                .insert(exerciseTemplates)
+                .values({
+                  id: fetched.id,
+                  title: fetched.title,
+                  primaryMuscleGroup: fetched.primary_muscle_group ?? null,
+                  secondaryMuscleGroupsJson: secondaryJson,
+                  equipment: fetched.equipment ?? null,
+                  isCustom: fetched.is_custom ?? false,
+                  thumbnailUrl: fetched.thumbnail_url ?? null,
+                })
+                .onConflictDoNothing();
+              tpl = await db.query.exerciseTemplates.findFirst({
+                where: eq(exerciseTemplates.id, ex.exercise_template_id),
+              });
+            }
+          } catch {
+            // Non-blocking fallback if single template fetch fails
+          }
+        }
         primaryMuscleGroup = tpl?.primaryMuscleGroup ?? null;
         equipment = tpl?.equipment ?? null;
       }

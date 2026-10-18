@@ -68,4 +68,55 @@ describe("HevyClient (client.ts)", () => {
       expect.anything()
     );
   });
+
+  it("should fetch single exercise template by id", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        exercise_template: {
+          id: "tpl-123",
+          title: "Incline Dumbbell Press",
+          primary_muscle_group: "chest",
+          equipment: "dumbbell",
+        },
+      }),
+    });
+
+    const client = new HevyClient({
+      apiKey: "valid-key",
+      fetchFn: mockFetch as unknown as typeof fetch,
+    });
+
+    const tpl = await client.getExerciseTemplate("tpl-123");
+    expect(tpl.id).toBe("tpl-123");
+    expect(tpl.title).toBe("Incline Dumbbell Press");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.hevyapp.com/v1/exercise_templates/tpl-123",
+      expect.anything()
+    );
+  });
+
+  it("should attach timeout signal when timeoutMs is provided", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "123" }),
+    });
+
+    const client = new HevyClient({
+      apiKey: "valid-key",
+      timeoutMs: 3000,
+      fetchFn: mockFetch as unknown as typeof fetch,
+    });
+
+    await client.getUserInfo();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.hevyapp.com/v1/user/info",
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
 });
+

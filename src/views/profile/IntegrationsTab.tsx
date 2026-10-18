@@ -71,7 +71,9 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
   const [isDisconnectingHevy, setIsDisconnectingHevy] = useState(false);
   const [deleteHevyDataOnDisconnect, setDeleteHevyDataOnDisconnect] = useState(false);
   const [isRegeneratingWebhook, setIsRegeneratingWebhook] = useState(false);
-  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [copiedWebhookUrl, setCopiedWebhookUrl] = useState(false);
+  const [copiedWebhookAuth, setCopiedWebhookAuth] = useState(false);
+  const [showWebhookAuth, setShowWebhookAuth] = useState(false);
 
   const fetchIntegrations = useCallback(async () => {
     try {
@@ -321,19 +323,35 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
 
   const getHevyWebhookUrl = () => {
     if (!hevyIntegration) return "";
-    const rawConfig = hevyIntegration.config as Record<string, unknown> | undefined;
-    const token = rawConfig?.webhookToken as string | undefined;
-    if (!token) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/api/integrations/hevy/webhook/${token}`;
+    return `${origin}/api/integrations/hevy/webhook`;
+  };
+
+  const getHevyWebhookToken = () => {
+    if (!hevyIntegration) return "";
+    const rawConfig = hevyIntegration.config as Record<string, unknown> | undefined;
+    return (rawConfig?.webhookToken as string | undefined) || "";
+  };
+
+  const getHevyAuthorizationHeader = () => {
+    const token = getHevyWebhookToken();
+    return token ? `Bearer ${token}` : "";
   };
 
   const handleCopyWebhookUrl = () => {
     const url = getHevyWebhookUrl();
     if (!url) return;
     navigator.clipboard.writeText(url);
-    setCopiedWebhook(true);
-    setTimeout(() => setCopiedWebhook(false), 2000);
+    setCopiedWebhookUrl(true);
+    setTimeout(() => setCopiedWebhookUrl(false), 2000);
+  };
+
+  const handleCopyWebhookAuth = () => {
+    const authHeader = getHevyAuthorizationHeader();
+    if (!authHeader) return;
+    navigator.clipboard.writeText(authHeader);
+    setCopiedWebhookAuth(true);
+    setTimeout(() => setCopiedWebhookAuth(false), 2000);
   };
 
   return (
@@ -713,7 +731,7 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
               </div>
 
               {/* Webhook Configuration Section */}
-              <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+              <div className="p-4 rounded-xl border border-border bg-card space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h5 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
@@ -726,41 +744,104 @@ export default function IntegrationsTab({ onDataChanged }: IntegrationsTabProps)
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={getHevyWebhookUrl()}
-                    className="flex-1 px-3 py-2 text-xs font-data-mono rounded-lg border border-input bg-muted/40 text-foreground"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCopyWebhookUrl}
-                    className="px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    {copiedWebhook ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" />
-                        <span>{t("common.copied")}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>{t("common.copy")}</span>
-                      </>
-                    )}
-                  </button>
+                <div className="p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
+                  {t("profile.integrations.hevy.webhookInstructions")}
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={handleRegenerateWebhook}
-                    disabled={isRegeneratingWebhook}
-                    className="px-3 py-2 rounded-lg border border-input bg-background hover:bg-muted text-foreground text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    title={t("profile.integrations.hevy.regenerateWebhook")}
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isRegeneratingWebhook ? "animate-spin" : ""}`} />
-                    <span className="hidden sm:inline">{t("profile.integrations.hevy.regenerateWebhook")}</span>
-                  </button>
+                <div className="space-y-3">
+                  {/* Field 1: Notification URL */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">
+                      {t("profile.integrations.hevy.webhookUrlLabel")}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={getHevyWebhookUrl()}
+                        className="flex-1 px-3 py-2 text-xs font-data-mono rounded-lg border border-input bg-muted/30 text-foreground"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCopyWebhookUrl}
+                        className="px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
+                      >
+                        {copiedWebhookUrl ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            <span>{t("common.copied")}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>{t("common.copy")}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Field 2: Authorization Header */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">
+                      {t("profile.integrations.hevy.webhookAuthLabel")}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type={showWebhookAuth ? "text" : "password"}
+                          readOnly
+                          value={getHevyAuthorizationHeader()}
+                          className="w-full px-3 py-2 pr-9 text-xs font-data-mono rounded-lg border border-input bg-muted/30 text-foreground"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowWebhookAuth((prev) => !prev)}
+                          aria-label={
+                            showWebhookAuth
+                              ? t("profile.integrations.fitdays.hidePassword")
+                              : t("profile.integrations.fitdays.showPassword")
+                          }
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          {showWebhookAuth ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyWebhookAuth}
+                        className="px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
+                      >
+                        {copiedWebhookAuth ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            <span>{t("common.copied")}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>{t("common.copy")}</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleRegenerateWebhook}
+                        disabled={isRegeneratingWebhook}
+                        className="px-3 py-2 rounded-lg border border-input bg-background hover:bg-muted text-foreground text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors shrink-0"
+                        title={t("profile.integrations.hevy.regenerateWebhook")}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isRegeneratingWebhook ? "animate-spin" : ""}`} />
+                        <span className="hidden sm:inline">{t("profile.integrations.hevy.regenerateWebhook")}</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 

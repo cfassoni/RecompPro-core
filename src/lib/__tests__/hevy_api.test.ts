@@ -6,6 +6,7 @@ import { GET as getHevyStatus, DELETE as disconnectHevy } from "@/app/api/integr
 import { POST as syncHevy } from "@/app/api/integrations/hevy/sync/route";
 import { POST as regenerateWebhook } from "@/app/api/integrations/hevy/regenerate-webhook/route";
 import { POST as hevyWebhook } from "@/app/api/integrations/hevy/webhook/[token]/route";
+import { POST as hevyBaseWebhook } from "@/app/api/integrations/hevy/webhook/route";
 import { GET as getWorkouts } from "@/app/api/workouts/route";
 import { GET as getWorkoutDetails } from "@/app/api/workouts/[id]/route";
 import { GET as getReadiness } from "@/app/api/workouts/readiness/route";
@@ -50,6 +51,15 @@ vi.mock("@/lib/hevy/client", () => {
             is_custom: false,
           },
         ],
+      });
+      getExerciseTemplate = vi.fn().mockImplementation(async (id: string) => {
+        return {
+          id,
+          title: "Custom Overhead Press",
+          primary_muscle_group: "shoulders",
+          equipment: "barbell",
+          is_custom: true,
+        };
       });
       getWorkouts = vi.fn().mockResolvedValue({
         page: 1,
@@ -258,7 +268,7 @@ describe("Hevy Integration & Workouts API Routes", () => {
     expect(listJson.workouts[0].epocCaloriesBurned).toBeGreaterThan(0);
   });
 
-  it("should handle incoming webhook to create and delete workout", async () => {
+  it("should handle incoming webhook via Authorization Bearer header and base route", async () => {
     // Connect to obtain webhook token
     const connectReq = new NextRequest("http://localhost/api/integrations/hevy/connect", {
       method: "POST",
@@ -271,24 +281,30 @@ describe("Hevy Integration & Workouts API Routes", () => {
     const connectRes = await connectHevy(connectReq);
     const { webhookToken } = await connectRes.json();
 
-    // Fire webhook WORKOUT_CREATED
-    const webhookReq = new NextRequest(
-      `http://localhost/api/integrations/hevy/webhook/${webhookToken}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "WORKOUT_CREATED",
-          id: "hevy-w-2",
-        }),
-      }
-    );
-    const webhookRes = await hevyWebhook(webhookReq, {
-      params: Promise.resolve({ token: webhookToken }),
+    // 1. Verify 401 Unauthorized without Authorization header or token
+    const unauthReq = new NextRequest("http://localhost/api/integrations/hevy/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workoutId: "hevy-w-2" }),
     });
-    expect(webhookRes.status).toBe(200);
-    const webhookJson = await webhookRes.json();
-    expect(webhookJson.success).toBe(true);
+    const unauthRes = await hevyBaseWebhook(unauthReq);
+    expect(unauthRes.status).toBe(401);
+
+    // 2. Fire base webhook with Authorization: Bearer <token> and official Hevy payload { workoutId: "..." }
+    const baseWebhookReq = new NextRequest("http://localhost/api/integrations/hevy/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${webhookToken}`,
+      },
+      body: JSON.stringify({
+        workoutId: "hevy-w-2",
+      }),
+    });
+    const baseWebhookRes = await hevyBaseWebhook(baseWebhookReq);
+    expect(baseWebhookRes.status).toBe(200);
+    const baseWebhookJson = await baseWebhookRes.json();
+    expect(baseWebhookJson.success).toBe(true);
 
     // Check workout details
     const detailReq = new NextRequest("http://localhost/api/workouts/hevy-w-2", {
@@ -302,22 +318,55 @@ describe("Hevy Integration & Workouts API Routes", () => {
     expect(detailJson.title).toBe("Leg Day");
     expect(detailJson.exercises[0].title).toBe("Squat (Barbell)");
 
-    // Fire webhook WORKOUT_DELETED
-    const deleteWebhookReq = new NextRequest(
+    // 3. Fire nested payload { id: "evt-99", payload: { workoutId: "hevy-w-2" } }
+    const nestedWebhookReq = new NextRequest("http://localhost/api/integrations/hevy/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${webhookToken}`,
+      },
+      body: JSON.stringify({
+        id: "evt-99",
+        payload: {
+          workoutId: "hevy-w-2",
+        },
+      }),
+    });
+    const nestedWebhookRes = await hevyBaseWebhook(nestedWebhookReq);
+    expect(nestedWebhookRes.status).toBe(200);
+
+    // 4. Fire parameterized webhook fallback /api/integrations/hevy/webhook/[token]
+    const fallbackWebhookReq = new NextRequest(
       `http://localhost/api/integrations/hevy/webhook/${webhookToken}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "WORKOUT_DELETED",
-          id: "hevy-w-2",
+          workoutId: "hevy-w-2",
         }),
       }
     );
-    const deleteWebhookRes = await hevyWebhook(deleteWebhookReq, {
+    const fallbackWebhookRes = await hevyWebhook(fallbackWebhookReq, {
       params: Promise.resolve({ token: webhookToken }),
     });
+    expect(fallbackWebhookRes.status).toBe(200);
+
+    // 5. Fire webhook WORKOUT_DELETED via base webhook
+    const deleteWebhookReq = new NextRequest("http://localhost/api/integrations/hevy/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${webhookToken}`,
+      },
+      body: JSON.stringify({
+        type: "WORKOUT_DELETED",
+        workoutId: "hevy-w-2",
+      }),
+    });
+    const deleteWebhookRes = await hevyBaseWebhook(deleteWebhookReq);
     expect(deleteWebhookRes.status).toBe(200);
+    const deleteWebhookJson = await deleteWebhookRes.json();
+    expect(deleteWebhookJson.action).toBe("deleted");
 
     // Verify deleted
     const checkDeletedRes = await getWorkoutDetails(detailReq, {
