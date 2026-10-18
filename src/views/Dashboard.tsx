@@ -12,7 +12,7 @@ import type {
 import WorkoutStatsWidget from "@/components/activities/WorkoutStatsWidget";
 import WorkoutCalendarWidget from "@/components/activities/WorkoutCalendarWidget";
 import MuscleReadinessWidget from "@/components/activities/MuscleReadinessWidget";
-import { formatDate, formatDateTime } from "@/lib/i18n";
+import { formatDate, formatDateTime, formatDecimal, formatDelta } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthContext";
 import {
   Scale,
@@ -232,8 +232,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
 
   const formatChange = (val: number | null | undefined, unit: string, lowerIsBetter: boolean) => {
     if (val === null || val === undefined) return "0";
-    const sign = val > 0 ? "+" : "";
-    const formatted = `${sign}${val.toFixed(2)}${unit}`;
+    const delta = formatDelta(val, 2, unit);
+    const formatted = delta ? delta.formatted : "0";
 
     let colorClass = "text-muted-foreground bg-muted";
     let IconComponent = null;
@@ -345,14 +345,14 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
               <span className="font-display-metrics text-foreground">
-                {summary?.current_weight}
+                {formatDecimal(summary?.current_weight, 1)}
               </span>
               <span className="text-sm font-normal text-muted-foreground">kg</span>
             </div>
             <div className="flex items-center gap-2 pt-1">
               {formatChange(summary!.weight_change, " kg", true)}
               <span className="text-xs text-muted-foreground font-data-mono">
-                {t("dashboard.starting")} {summary?.starting_weight} kg
+                {t("dashboard.starting")} {formatDecimal(summary?.starting_weight, 1)} kg
               </span>
             </div>
           </div>
@@ -399,8 +399,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
             <div className="flex items-baseline gap-2">
               <span className="font-display-metrics text-foreground">
                 {bodyFatUnit === "pct"
-                  ? summary?.current_body_fat
-                  : summary?.current_body_fat_mass}
+                  ? formatDecimal(summary?.current_body_fat, 1)
+                  : formatDecimal(summary?.current_body_fat_mass, 1)}
               </span>
               <span className="text-sm font-normal text-muted-foreground">
                 {bodyFatUnit === "pct" ? "%" : "kg"}
@@ -413,8 +413,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
               <span className="text-xs text-muted-foreground font-data-mono">
                 {t("dashboard.starting")}{" "}
                 {bodyFatUnit === "pct"
-                  ? `${summary?.starting_body_fat}%`
-                  : `${summary?.starting_body_fat_mass} kg`}
+                  ? `${formatDecimal(summary?.starting_body_fat, 1)}%`
+                  : `${formatDecimal(summary?.starting_body_fat_mass, 1)} kg`}
               </span>
             </div>
           </div>
@@ -461,8 +461,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
             <div className="flex items-baseline gap-2">
               <span className="font-display-metrics text-foreground">
                 {muscleUnit === "kg"
-                  ? summary?.current_skeletal_muscle_mass
-                  : summary?.current_skeletal_muscle_mass_pct}
+                  ? formatDecimal(summary?.current_skeletal_muscle_mass, 1)
+                  : formatDecimal(summary?.current_skeletal_muscle_mass_pct, 1)}
               </span>
               <span className="text-sm font-normal text-muted-foreground">
                 {muscleUnit === "kg" ? "kg" : "%"}
@@ -475,8 +475,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
               <span className="text-xs text-muted-foreground font-data-mono">
                 {t("dashboard.starting")}{" "}
                 {muscleUnit === "kg"
-                  ? `${summary?.starting_skeletal_muscle_mass} kg`
-                  : `${summary?.starting_skeletal_muscle_mass_pct}%`}
+                  ? `${formatDecimal(summary?.starting_skeletal_muscle_mass, 1)} kg`
+                  : `${formatDecimal(summary?.starting_skeletal_muscle_mass_pct, 1)}%`}
               </span>
             </div>
           </div>
@@ -613,7 +613,7 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
                     <Tooltip
                       formatter={(value: unknown, name?: unknown) => {
                         const valNum =
-                          typeof value === "number" ? value.toFixed(1) : String(value);
+                          typeof value === "number" ? formatDecimal(value, 1) : String(value);
                         const nameStr = String(name || "");
                         if (nameStr.includes("%")) return [`${valNum}%`, nameStr];
                         if (nameStr.includes("kg")) return [`${valNum} kg`, nameStr];

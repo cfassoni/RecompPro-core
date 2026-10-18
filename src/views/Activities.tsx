@@ -11,7 +11,7 @@ import {
 import MuscleReadinessWidget from "@/components/activities/MuscleReadinessWidget";
 import LoadProgressionWidget from "@/components/activities/LoadProgressionWidget";
 import WorkoutCard from "@/components/activities/WorkoutCard";
-import { formatDate, formatDateTime } from "@/lib/i18n";
+import { formatDate, formatDateTime, formatInteger, formatDecimal } from "@/lib/i18n";
 import {
   Dumbbell,
   Activity,
@@ -146,13 +146,14 @@ export default function Activities() {
   const kpiVolumeDisplay =
     kpiTotalVolumeKg >= 1000
       ? {
-          value: Math.round(kpiTotalVolumeKg / 1000).toLocaleString(),
+          value: formatInteger(Math.round(kpiTotalVolumeKg / 1000)),
           unit: "t",
         }
       : {
-          value: Math.round(kpiTotalVolumeKg).toLocaleString(),
+          value: formatInteger(Math.round(kpiTotalVolumeKg)),
           unit: "kg",
         };
+
 
   // History filtering & pagination logic
   const filteredHistoryWorkouts = useMemo(() => {
@@ -316,7 +317,7 @@ export default function Activities() {
               </div>
               <div
                 className="font-display-metrics text-3xl font-bold text-foreground truncate"
-                title={`${Math.round(kpiTotalVolumeKg).toLocaleString()} kg`}
+                title={`${formatInteger(Math.round(kpiTotalVolumeKg))} kg`}
               >
                 {kpiVolumeDisplay.value}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
@@ -335,12 +336,12 @@ export default function Activities() {
                 <Flame className="h-4 w-4 text-rose-500" />
               </div>
               <div className="font-display-metrics text-3xl font-bold text-foreground truncate">
-                {Math.round(kpiTotalCalories).toLocaleString()}{" "}
+                {formatInteger(Math.round(kpiTotalCalories))}{" "}
                 <span className="text-sm font-normal text-muted-foreground">kcal</span>
               </div>
               <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold">
                 <Sparkles className="h-3 w-3" />
-                <span>+{Math.round(kpiTotalEpoc).toLocaleString()} kcal {t("activities.epocDecomposition")}</span>
+                <span>+{formatInteger(Math.round(kpiTotalEpoc))} kcal {t("activities.epocDecomposition")}</span>
               </p>
             </div>
 
@@ -351,7 +352,7 @@ export default function Activities() {
                 <Zap className="h-4 w-4 text-amber-500" />
               </div>
               <div className="font-display-metrics text-3xl font-bold text-foreground">
-                {kpiAvgRpe !== null ? kpiAvgRpe.toFixed(1) : "—"}
+                {kpiAvgRpe !== null ? formatDecimal(kpiAvgRpe, 1) : "—"}
               </div>
               <p className="text-xs text-muted-foreground">
                 {kpiAvgRpe !== null ? t("activities.rpeOptimal") : t("activities.noRpeData")}

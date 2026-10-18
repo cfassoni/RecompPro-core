@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import type { MuscleReadinessResponse } from "@/lib/api";
+import { formatDecimal, formatInteger } from "@/lib/i18n";
 import {
   Activity,
   CheckCircle2,
@@ -236,7 +237,7 @@ export default function MuscleReadinessWidget({
               {t("activities.readiness.biometricModulation", {
                 gender: readiness.userProfile.gender,
                 age: readiness.userProfile.age ?? "—",
-                weight: readiness.userProfile.effectiveWeightKg.toFixed(1),
+                weight: formatDecimal(readiness.userProfile.effectiveWeightKg, 1),
               })}
             </span>
           </div>
@@ -371,7 +372,7 @@ export default function MuscleReadinessWidget({
                     <div className="flex items-center justify-between">
                       <span>{t("activities.readiness.lastVolume")}:</span>
                       <span className="font-data-mono">
-                        {mg.lastVolumeKg.toLocaleString()} kg ({mg.lastSetCount} {t("activities.sets")})
+                        {formatInteger(mg.lastVolumeKg)} kg ({mg.lastSetCount} {t("activities.sets")})
                       </span>
                     </div>
                   </>

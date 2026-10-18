@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkoutItem, WorkoutDetail } from "@/lib/api";
 import { api } from "@/lib/api";
-import { formatDateTime } from "@/lib/i18n";
+import { formatDateTime, formatInteger, formatDecimal, formatNumber } from "@/lib/i18n";
+
 import {
   Dumbbell,
   Flame,
@@ -129,16 +130,16 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
             {/* Calories with EPOC pill */}
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs"
-              title={`${t("activities.sessionCalories")}: ${workout.sessionCaloriesBurned.toFixed(0)} kcal | ${t("activities.epocCalories")}: ${workout.epocCaloriesBurned.toFixed(0)} kcal`}
+              title={`${t("activities.sessionCalories")}: ${formatInteger(Math.round(workout.sessionCaloriesBurned))} kcal | ${t("activities.epocCalories")}: ${formatInteger(Math.round(workout.epocCaloriesBurned))} kcal`}
             >
               <Flame className="h-3.5 w-3.5 text-rose-500 shrink-0" />
               <span className="font-data-mono font-bold text-foreground">
-                {workout.totalCaloriesBurned.toFixed(0)} kcal
+                {formatInteger(Math.round(workout.totalCaloriesBurned))} kcal
               </span>
               {workout.epocCaloriesBurned > 0 && (
                 <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1 rounded flex items-center gap-0.5">
                   <Sparkles className="h-2.5 w-2.5" />
-                  +{workout.epocCaloriesBurned.toFixed(0)} EPOC
+                  +{formatInteger(Math.round(workout.epocCaloriesBurned))} EPOC
                 </span>
               )}
             </div>
@@ -147,7 +148,7 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
             <div className="px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs">
               <span className="text-muted-foreground mr-1.5">{t("activities.volume")}:</span>
               <strong className="font-data-mono text-foreground">
-                {workout.totalVolumeKg.toLocaleString()} kg
+                {formatInteger(Math.round(workout.totalVolumeKg))} kg
               </strong>
             </div>
 
@@ -160,7 +161,7 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
                 <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 <span className="text-muted-foreground mr-1">RPE:</span>
                 <strong className="font-data-mono text-foreground">
-                  {workout.avgRpe.toFixed(1)}
+                  {formatDecimal(workout.avgRpe, 1)}
                 </strong>
               </div>
             )}
@@ -253,11 +254,11 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
                               <Trophy className="h-3 w-3 text-amber-500" />
                               <span>
                                 {ex.isAssisted && bestPr?.deltaWeightKg
-                                  ? `${bestPr.deltaWeightKg} kg ${t("activities.progression.assistedLabel")}`
+                                  ? `${formatNumber(bestPr.deltaWeightKg)} kg ${t("activities.progression.assistedLabel")}`
                                   : bestPr?.deltaWeightKg
-                                  ? `+${bestPr.deltaWeightKg} kg`
+                                  ? `+${formatNumber(bestPr.deltaWeightKg)} kg`
                                   : bestPr?.deltaReps
-                                  ? `+${bestPr.deltaReps} reps`
+                                  ? `+${formatNumber(bestPr.deltaReps)} reps`
                                   : t("activities.progression.prSingle")}
                               </span>
                             </span>
@@ -285,7 +286,7 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
                                 <TrendingUp className="h-3 w-3" />
                               )}
                               <span>
-                                {t("activities.progression.nextTarget")}: {prescription.nextLoadKg} kg
+                                {t("activities.progression.nextTarget")}: {formatNumber(prescription.nextLoadKg)} kg
                                 {prescription.action === "MAINTAIN_LOAD_PUSH_REPS" && prescription.targetRepBracket
                                   ? ` (${prescription.targetRepBracket.minReps}-${prescription.targetRepBracket.maxReps} reps)`
                                   : ""}
@@ -336,13 +337,13 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
                                         className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 rounded bg-amber-500 text-amber-950 font-sans uppercase tracking-tight"
                                         title={
                                           s.isAssisted
-                                            ? `${s.deltaWeightKg} kg ${t("activities.progression.assistedLabel")}`
+                                            ? `${formatNumber(s.deltaWeightKg)} kg ${t("activities.progression.assistedLabel")}`
                                             : s.progressionType === "weight_pr" && s.deltaWeightKg
-                                            ? `+${s.deltaWeightKg} kg`
+                                            ? `+${formatNumber(s.deltaWeightKg)} kg`
                                             : s.progressionType === "reps_pr" && s.deltaReps
-                                            ? `+${s.deltaReps} reps`
+                                            ? `+${formatNumber(s.deltaReps)} reps`
                                             : s.progressionType === "1rm_pr"
-                                            ? `${t("activities.progression.pr1Rm")}${s.est1RmKg ? `: ${s.est1RmKg} kg` : ""}`
+                                            ? `${t("activities.progression.pr1Rm")}${s.est1RmKg ? `: ${formatNumber(s.est1RmKg)} kg` : ""}`
                                             : t("activities.progression.prSingle")
                                         }
                                       >
@@ -352,13 +353,13 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
                                     )}
                                   </td>
                                   <td className="py-1.5 px-3 text-foreground font-semibold">
-                                    {s.weightKg !== null ? `${s.weightKg} kg` : "—"}
+                                    {s.weightKg !== null ? `${formatNumber(s.weightKg)} kg` : "—"}
                                   </td>
                                   <td className="py-1.5 px-3 text-foreground">
-                                    {s.reps !== null ? s.reps : "—"}
+                                    {s.reps !== null ? formatNumber(s.reps) : "—"}
                                   </td>
                                   <td className="py-1.5 px-3 text-muted-foreground">
-                                    {s.rpe !== null ? s.rpe : "—"}
+                                    {s.rpe !== null ? formatNumber(s.rpe) : "—"}
                                   </td>
                                   <td className="py-1.5 pl-3 font-sans">
                                     {getSetTypeBadge(s.type)}

@@ -12,7 +12,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import type { WorkoutCalendarItem } from "@/lib/api";
-import { formatDate } from "@/lib/i18n";
+import { formatDate, formatInteger } from "@/lib/i18n";
+
 
 interface WorkoutCalendarWidgetProps {
   calendarDays: Record<string, WorkoutCalendarItem[]>;
@@ -317,7 +318,7 @@ export default function WorkoutCalendarWidget({
                       {formatDurationText(w.durationSeconds)}
                       <span>•</span>
                       <Dumbbell className="h-3 w-3" />
-                      {w.totalVolumeKg.toLocaleString()} kg
+                      {formatInteger(w.totalVolumeKg)} kg
                     </span>
                   </div>
                   <Link

@@ -12,6 +12,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { WorkoutStatsResponse, WorkoutChartPoint } from "@/lib/api";
+import { formatInteger } from "@/lib/i18n";
 import { Dumbbell, Flame } from "lucide-react";
 
 interface WorkoutStatsWidgetProps {
@@ -61,12 +62,12 @@ export default function WorkoutStatsWidget({
       };
     } else if (activeTab === "reps") {
       return {
-        value: stats.summary.currentWeekReps.toLocaleString(),
+        value: formatInteger(stats.summary.currentWeekReps),
         label: t("dashboard.workoutStats.thisWeek"),
       };
     } else {
       return {
-        value: `${stats.summary.currentWeekVolumeKg.toLocaleString()} kg`,
+        value: `${formatInteger(stats.summary.currentWeekVolumeKg)} kg`,
         label: t("dashboard.workoutStats.thisWeek"),
       };
     }
@@ -209,8 +210,8 @@ export default function WorkoutStatsWidget({
                 axisLine={false}
                 tickFormatter={(val: number) => {
                   if (activeTab === "duration") return `${val}h`;
-                  if (val >= 1000) return `${(val / 1000).toFixed(0)}k`;
-                  return `${val}`;
+                  if (val >= 1000) return `${formatInteger(Math.round(val / 1000))}k`;
+                  return formatInteger(val);
                 }}
               />
               <Tooltip
@@ -232,19 +233,19 @@ export default function WorkoutStatsWidget({
                         <div className="flex items-center justify-between text-muted-foreground gap-3">
                           <span>{t("dashboard.workoutStats.repsTab")}:</span>
                           <span className={`font-data-mono font-medium ${activeTab === "reps" ? "text-amber-600 dark:text-amber-400 font-bold" : "text-foreground"}`}>
-                            {data.reps.toLocaleString()}
+                            {formatInteger(data.reps)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground gap-3">
                           <span>{t("dashboard.workoutStats.volumeTab")}:</span>
                           <span className={`font-data-mono font-medium ${activeTab === "volume" ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-foreground"}`}>
-                            {data.volumeKg.toLocaleString()} kg
+                            {formatInteger(data.volumeKg)} kg
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground gap-3 pt-1 border-t border-border/50 text-[11px]">
                           <span>{t("activities.totalSessions")}:</span>
                           <span className="font-data-mono font-medium text-primary">
-                            {data.workoutsCount}
+                            {formatInteger(data.workoutsCount)}
                           </span>
                         </div>
                       </div>
