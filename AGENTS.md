@@ -116,6 +116,7 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 - **DO** output the GitHub action URL directly upon creating PRs or releases and yield immediately without entering polling loops.
 - **DO** ensure Docker volumes use explicit names (e.g., `recomp_pro_data`) and legacy volumes use `external: true` for Portainer compatibility.
 - **DO** write comprehensive unit/integration tests for every newly added feature or bug fix.
+- **DO** consult [docs/UI_AND_I18N_GUIDELINES.md](file:///home/cfassoni/Projects/RecompPro-core/docs/UI_AND_I18N_GUIDELINES.md) and ai-memory for UI consistency, locale-aware formatting, and integration standards.
 - **DO** authenticate remote Git and GitHub CLI operations with ephemeral GitHub App installation tokens: `github-app clone` for private clones, the configured helper for `fetch`/`push`/`pull`, and `github-app run gh ...` for GitHub CLI.
 
 ### DON'Ts
