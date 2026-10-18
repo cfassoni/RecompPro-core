@@ -143,6 +143,20 @@ export default function Activities() {
       ? kpiRpeWorkouts.reduce((sum, w) => sum + (w.avgRpe || 0), 0) / kpiRpeWorkouts.length
       : null;
 
+  const kpiVolumeDisplay =
+    kpiTotalVolumeKg >= 1000
+      ? {
+          value: (kpiTotalVolumeKg / 1000).toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }),
+          unit: "t",
+        }
+      : {
+          value: Math.round(kpiTotalVolumeKg).toLocaleString(),
+          unit: "kg",
+        };
+
   // History filtering & pagination logic
   const filteredHistoryWorkouts = useMemo(() => {
     if (workouts.length === 0) return [];
@@ -303,9 +317,14 @@ export default function Activities() {
                 <span>{t("activities.totalVolume")}</span>
                 <Activity className="h-4 w-4 text-emerald-500" />
               </div>
-              <div className="font-display-metrics text-3xl font-bold text-foreground">
-                {kpiTotalVolumeKg.toLocaleString()}{" "}
-                <span className="text-sm font-normal text-muted-foreground">kg</span>
+              <div
+                className="font-display-metrics text-3xl font-bold text-foreground truncate"
+                title={`${Math.round(kpiTotalVolumeKg).toLocaleString()} kg`}
+              >
+                {kpiVolumeDisplay.value}{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  {kpiVolumeDisplay.unit}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground">
                 {t("activities.volumeSum")}
@@ -318,13 +337,13 @@ export default function Activities() {
                 <span>{t("activities.totalEnergy")}</span>
                 <Flame className="h-4 w-4 text-rose-500" />
               </div>
-              <div className="font-display-metrics text-3xl font-bold text-foreground">
-                {kpiTotalCalories.toFixed(0)}{" "}
+              <div className="font-display-metrics text-3xl font-bold text-foreground truncate">
+                {Math.round(kpiTotalCalories).toLocaleString()}{" "}
                 <span className="text-sm font-normal text-muted-foreground">kcal</span>
               </div>
               <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold">
                 <Sparkles className="h-3 w-3" />
-                <span>+{kpiTotalEpoc.toFixed(0)} kcal {t("activities.epocDecomposition")}</span>
+                <span>+{Math.round(kpiTotalEpoc).toLocaleString()} kcal {t("activities.epocDecomposition")}</span>
               </p>
             </div>
 
