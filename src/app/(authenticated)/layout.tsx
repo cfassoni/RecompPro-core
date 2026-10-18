@@ -51,6 +51,7 @@ export default function AuthenticatedLayout({
         user={user}
         onLogout={logout}
         onEditProfile={() => router.push("/profile")}
+        onNavigateToIntegrations={() => router.push("/profile?tab=integrations")}
         onUserUpdate={setUser}
         onMobileMenuToggle={() => setIsMobileMenuOpen((prev) => !prev)}
       />

@@ -7,7 +7,8 @@ import { api } from "@/lib/api";
 import LocalizedDatePicker from "@/components/LocalizedDatePicker";
 import CSVImportModal from "@/components/CSVImportModal";
 import type { RecompRecord } from "@/lib/api";
-import { formatDate, formatDateTime } from "@/lib/i18n";
+import { formatDate, formatDateTime, formatInteger, formatDecimal } from "@/lib/i18n";
+
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   Loader2,
@@ -28,6 +29,7 @@ import {
   Check,
   Star,
   Upload,
+  RefreshCw,
   Flame,
   Target,
   Sparkles,
@@ -48,6 +50,26 @@ export default function Biometrics({
 
   // CSV Import Modal state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Cloud Integrations & Sync state
+  const [hasIntegration, setHasIntegration] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    api
+      .getIntegrations()
+      .then((list) => {
+        const connected = list.some((i) => i.status === "connected");
+        setHasIntegration(connected);
+      })
+      .catch(() => {
+        setHasIntegration(false);
+      });
+  }, []);
 
   // Check URL query param ?import=open to automatically open import modal
   useEffect(() => {
@@ -140,6 +162,34 @@ export default function Biometrics({
   useEffect(() => {
     fetchRecords(true);
   }, [fetchRecords]);
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSyncFeedback(null);
+    try {
+      const res = await api.syncFitdays(false);
+      await fetchRecords(false);
+      const inserted = res.result?.inserted ?? 0;
+      const updated = res.result?.updated ?? 0;
+      const message =
+        inserted > 0 || updated > 0
+          ? t("biometrics.syncSuccess", { inserted, updated })
+          : t("biometrics.syncNoChanges");
+      setSyncFeedback({
+        success: true,
+        message,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      setSyncFeedback({
+        success: false,
+        message: msg ? `${t("biometrics.syncError")}: ${msg}` : t("biometrics.syncError"),
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Derived bioimpedance highlights for Stitch Bento cards
   const { earliestRecord, latestRecord, bmrValue, weightChange, fatChange, muscleChange } =
@@ -525,7 +575,7 @@ export default function Biometrics({
 
   const formatSegmentValue = (value: number | null | undefined, unit = "") => {
     if (value === null || value === undefined) return "-";
-    return `${value.toFixed(2)}${unit}`;
+    return `${formatDecimal(value, 2)}${unit}`;
   };
 
   if (isLoading) {
@@ -579,7 +629,24 @@ export default function Biometrics({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-center">
+        <div className="flex items-center gap-3 self-start sm:self-center flex-wrap">
+          {hasIntegration && (
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={handleSync}
+              className="flex items-center gap-2 px-4 py-2 bg-card border border-border hover:bg-muted text-foreground text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              title={t("biometrics.syncBtn")}
+            >
+              <RefreshCw
+                className={`h-4 w-4 text-emerald-600 dark:text-emerald-400 ${
+                  isSyncing ? "animate-spin" : ""
+                }`}
+              />
+              <span>{isSyncing ? t("biometrics.syncingBtn") : t("biometrics.syncBtn")}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsImportModalOpen(true)}
@@ -608,6 +675,40 @@ export default function Biometrics({
           </button>
         </div>
       </div>
+
+      {/* Sync Feedback Alert */}
+      {syncFeedback && (
+        <div
+          className={`p-4 rounded-xl border flex items-start gap-3 animate-in fade-in slide-in-from-top duration-300 ${
+            syncFeedback.success
+              ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-800 dark:text-emerald-300"
+              : "bg-amber-500/10 border-amber-500/25 text-amber-800 dark:text-amber-300"
+          }`}
+        >
+          {syncFeedback.success ? (
+            <Check className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          )}
+          <div className="flex-1">
+            <p className="text-sm font-semibold">
+              {syncFeedback.success
+                ? t("biometrics.syncSuccessTitle")
+                : t("biometrics.syncErrorTitle")}
+            </p>
+            <p className="text-xs opacity-90 mt-0.5 whitespace-pre-line">
+              {syncFeedback.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setSyncFeedback(null)}
+            aria-label={t("common.close")}
+            className="p-1 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Stitch Bento Highlights Row (TMB Highlight + Current vs Target comparison) */}
       {records.length > 0 && latestRecord && (
@@ -638,7 +739,7 @@ export default function Biometrics({
 
               <div className="my-3">
                 <div className="font-display-metrics text-foreground tracking-tight">
-                  {bmrValue ? bmrValue.toLocaleString() : "—"}
+                  {bmrValue ? formatInteger(bmrValue) : "—"}
                   <span className="text-lg font-normal text-muted-foreground ml-2">
                     {t("biometrics.kcalDay")}
                   </span>
@@ -686,7 +787,7 @@ export default function Biometrics({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-foreground">{t("dashboard.weight")}</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-data-mono font-bold">{latestRecord.weight} kg</span>
+                    <span className="font-data-mono font-bold">{formatDecimal(latestRecord.weight, 1)} kg</span>
                     <span
                       className={`font-data-mono text-[11px] font-semibold px-1.5 py-0.5 rounded ${
                         weightChange <= 0
@@ -695,7 +796,7 @@ export default function Biometrics({
                       }`}
                     >
                       {weightChange > 0 ? "+" : ""}
-                      {weightChange.toFixed(1)} kg
+                      {formatDecimal(weightChange, 1)} kg
                     </span>
                   </div>
                 </div>
@@ -714,7 +815,7 @@ export default function Biometrics({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-foreground">{t("dashboard.bodyFat")}</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-data-mono font-bold">{latestRecord.body_fat_pct}%</span>
+                    <span className="font-data-mono font-bold">{formatDecimal(latestRecord.body_fat_pct, 1)}%</span>
                     <span
                       className={`font-data-mono text-[11px] font-semibold px-1.5 py-0.5 rounded ${
                         fatChange <= 0
@@ -723,7 +824,7 @@ export default function Biometrics({
                       }`}
                     >
                       {fatChange > 0 ? "+" : ""}
-                      {fatChange.toFixed(1)}%
+                      {formatDecimal(fatChange, 1)}%
                     </span>
                   </div>
                 </div>
@@ -743,7 +844,7 @@ export default function Biometrics({
                   <span className="font-medium text-foreground">{t("dashboard.skeletalMuscle")}</span>
                   <div className="flex items-center gap-2">
                     <span className="font-data-mono font-bold">
-                      {latestRecord.skeletal_muscle_mass} kg
+                      {formatDecimal(latestRecord.skeletal_muscle_mass, 1)} kg
                     </span>
                     <span
                       className={`font-data-mono text-[11px] font-semibold px-1.5 py-0.5 rounded ${
@@ -753,7 +854,7 @@ export default function Biometrics({
                       }`}
                     >
                       {muscleChange > 0 ? "+" : ""}
-                      {muscleChange.toFixed(1)} kg
+                      {formatDecimal(muscleChange, 1)} kg
                     </span>
                   </div>
                 </div>
@@ -1020,16 +1121,16 @@ export default function Biometrics({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-data-mono font-medium">
-                      {record.weight.toFixed(1)}
+                      {formatDecimal(record.weight, 1)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-data-mono">
-                      {record.bmi?.toFixed(1) || "-"}
+                      {record.bmi !== null && record.bmi !== undefined ? formatDecimal(record.bmi, 1) : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-data-mono">
-                      {record.body_fat_pct?.toFixed(1) || "-"}%
+                      {record.body_fat_pct !== null && record.body_fat_pct !== undefined ? `${formatDecimal(record.body_fat_pct, 1)}%` : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-data-mono">
-                      {record.skeletal_muscle_mass?.toFixed(1) || "-"}
+                      {record.skeletal_muscle_mass !== null && record.skeletal_muscle_mass !== undefined ? formatDecimal(record.skeletal_muscle_mass, 1) : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {record.body_score ? (
@@ -1614,7 +1715,7 @@ export default function Biometrics({
                   {selectedFile.name}
                 </span>
                 <span className="text-muted-foreground">
-                  {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                  {formatDecimal(selectedFile.size / (1024 * 1024), 2)} MB
                 </span>
               </div>
             )}
@@ -1693,7 +1794,7 @@ export default function Biometrics({
                     {t("dashboard.weight")}
                   </span>
                   <div className="font-data-mono font-bold text-lg text-foreground mt-0.5">
-                    {selectedRecord.weight.toFixed(1)} <span className="text-xs font-normal">kg</span>
+                    {formatDecimal(selectedRecord.weight, 1)} <span className="text-xs font-normal">kg</span>
                   </div>
                 </div>
                 <div>
@@ -1701,7 +1802,7 @@ export default function Biometrics({
                     {t("dashboard.bodyFat")}
                   </span>
                   <div className="font-data-mono font-bold text-lg text-foreground mt-0.5">
-                    {selectedRecord.body_fat_pct?.toFixed(1) || "-"}%
+                    {selectedRecord.body_fat_pct !== null && selectedRecord.body_fat_pct !== undefined ? `${formatDecimal(selectedRecord.body_fat_pct, 1)}%` : "-"}
                   </div>
                 </div>
                 <div>
@@ -1709,7 +1810,11 @@ export default function Biometrics({
                     {t("dashboard.skeletalMuscle")}
                   </span>
                   <div className="font-data-mono font-bold text-lg text-foreground mt-0.5">
-                    {selectedRecord.skeletal_muscle_mass?.toFixed(1) || "-"} <span className="text-xs font-normal">kg</span>
+                    {selectedRecord.skeletal_muscle_mass !== null && selectedRecord.skeletal_muscle_mass !== undefined ? (
+                      <>
+                        {formatDecimal(selectedRecord.skeletal_muscle_mass, 1)} <span className="text-xs font-normal">kg</span>
+                      </>
+                    ) : "-"}
                   </div>
                 </div>
                 <div>
@@ -1717,7 +1822,7 @@ export default function Biometrics({
                     BMI
                   </span>
                   <div className="font-data-mono font-bold text-lg text-foreground mt-0.5">
-                    {selectedRecord.bmi?.toFixed(1) || "-"}
+                    {selectedRecord.bmi !== null && selectedRecord.bmi !== undefined ? formatDecimal(selectedRecord.bmi, 1) : "-"}
                   </div>
                 </div>
               </div>
@@ -1731,7 +1836,7 @@ export default function Biometrics({
                   <div className="p-3 bg-card border border-border rounded-lg flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">{t("history.drawer.bmr")}</span>
                     <span className="font-data-mono font-bold text-xs text-foreground">
-                      {selectedRecord.bmr ? `${selectedRecord.bmr} kcal` : "-"}
+                      {selectedRecord.bmr ? `${formatInteger(selectedRecord.bmr)} kcal` : "-"}
                     </span>
                   </div>
                   <div className="p-3 bg-card border border-border rounded-lg flex items-center justify-between">

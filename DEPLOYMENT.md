@@ -27,6 +27,7 @@ Recomp Pro is built as a single-container Next.js 16 (Node.js 22) monolith with 
          - REPORTS_DIR=/app/data/uploads/reports
          - JWT_SECRET=${SECRET_KEY:-recomp_pro_super_secret_key_12345_change_in_production}
          - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+         - INTEGRATIONS_ENCRYPTION_KEY=${INTEGRATIONS_ENCRYPTION_KEY:-}
          - MAILGUN_API_KEY=${MAILGUN_API_KEY:-}
          - MAILGUN_DOMAIN=${MAILGUN_DOMAIN:-}
          - MAILGUN_API_BASE_URL=${MAILGUN_API_BASE_URL:-https://api.mailgun.net/v3}
@@ -69,6 +70,7 @@ All runtime configuration variables are read dynamically on the server at reques
 | `REPORTS_DIR` | `/app/data/uploads/reports` | Directory for PDF/image bioimpedance reports attached to scan records. |
 | `JWT_SECRET` / `SECRET_KEY` | *(fallback dev key)* | Secret key used to sign JWT session and guest share tokens. **Always set a strong random string in production.** |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24h) | Session JWT expiration window in minutes. |
+| `INTEGRATIONS_ENCRYPTION_KEY` | *(derived from `JWT_SECRET`)* | Optional dedicated key or passphrase for AES-256-GCM envelope encryption of third-party integration credentials at rest. If omitted, securely derived from `JWT_SECRET` via HKDF-SHA256. |
 | `ENABLE_WIP_PAGES` | `false` (`true` in dev) | Dynamically toggles preview/WIP navigation items and dashboard cards (`Nutrition`, `Activities`) without rebuilding the image. |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost` | Base URL used when generating email verification and password reset links. |
 | `MAILGUN_API_KEY` | *(empty)* | Mailgun API key for transactional emails (verification codes, password resets, security alerts). When empty, emails are logged to container stdout. |

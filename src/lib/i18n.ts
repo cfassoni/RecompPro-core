@@ -25,10 +25,14 @@ export function setLanguageCookie(lang: string, days = 365): void {
   document.cookie = `${COOKIE_NAME}=${lang};expires=${date.toUTCString()};path=/;SameSite=Lax${isSecure ? ";Secure" : ""}`;
 }
 
-import { resolveLanguage, type SupportedLanguage } from "./locale";
+import { resolveLanguage, getLocaleTag, type SupportedLanguage } from "./locale";
 
-export { resolveLanguage };
+export { resolveLanguage, getLocaleTag };
 export type { SupportedLanguage };
+
+export function getActiveLocale(): string {
+  return getLocaleTag(i18n.language);
+}
 
 // Detect client preferred language
 export function detectLanguage(): SupportedLanguage {
@@ -95,7 +99,7 @@ export function formatDate(date: Date | string | null | undefined, options?: Int
   if (isNaN(d.getTime())) return "";
 
   // Use active i18n language locale
-  return d.toLocaleDateString(i18n.language || "en", options || {
+  return d.toLocaleDateString(getActiveLocale(), options || {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -107,7 +111,7 @@ export function formatDateTime(date: Date | string | null | undefined, options?:
   const d = typeof date === "string" ? new Date(date) : date;
   if (isNaN(d.getTime())) return "";
 
-  return d.toLocaleString(i18n.language || "en", options || {
+  return d.toLocaleString(getActiveLocale(), options || {
     weekday: "short",
     year: "numeric",
     month: "short",
@@ -117,4 +121,56 @@ export function formatDateTime(date: Date | string | null | undefined, options?:
   });
 }
 
+// Dynamic Locale-Aware Number Formatting Helpers
+export function formatNumber(
+  value: number | null | undefined,
+  options?: Intl.NumberFormatOptions,
+  localeOverride?: string
+): string {
+  if (value === null || value === undefined || isNaN(value)) return "—";
+  const locale = localeOverride || getActiveLocale();
+  return new Intl.NumberFormat(locale, { useGrouping: "always", ...options }).format(value);
+}
+
+
+export function formatInteger(
+  value: number | null | undefined,
+  localeOverride?: string
+): string {
+  return formatNumber(value, { maximumFractionDigits: 0 }, localeOverride);
+}
+
+export function formatDecimal(
+  value: number | null | undefined,
+  fractionDigits = 1,
+  localeOverride?: string
+): string {
+  return formatNumber(
+    value,
+    {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    },
+    localeOverride
+  );
+}
+
+export function formatDelta(
+  val: number | null | undefined,
+  fractionDigits = 1,
+  unit = "",
+  localeOverride?: string
+): { formatted: string; isPositive: boolean; isNegative: boolean; isNeutral: boolean } | null {
+  if (val === null || val === undefined || isNaN(val)) return null;
+  const sign = val > 0 ? "+" : "";
+  const formatted = `${sign}${formatDecimal(val, fractionDigits, localeOverride)}${unit}`;
+  return {
+    formatted,
+    isPositive: val > 0,
+    isNegative: val < 0,
+    isNeutral: val === 0,
+  };
+}
+
 export default i18n;
+

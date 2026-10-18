@@ -29,19 +29,34 @@ import {
   Activity,
   KeyRound,
   Lock,
+  Link2,
 } from "lucide-react";
 import OtpInput from "@/components/OtpInput";
+import IntegrationsTab from "./profile/IntegrationsTab";
 
 interface ProfileProps {
   user: User | null;
   onProfileUpdated: (updatedUser: User) => void;
 }
 
-type ProfileTab = "account" | "personal" | "security" | "privacy";
+type ProfileTab = "account" | "personal" | "security" | "privacy" | "integrations";
 
 export default function Profile({ user, onProfileUpdated }: ProfileProps) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<ProfileTab>("account");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (
+        tabParam &&
+        ["account", "personal", "security", "privacy", "integrations"].includes(tabParam)
+      ) {
+        setActiveTab(tabParam as ProfileTab);
+      }
+    }
+  }, []);
 
   // Account Information Fields
   const [email, setEmail] = useState(user?.email || "");
@@ -408,6 +423,7 @@ export default function Profile({ user, onProfileUpdated }: ProfileProps) {
     { id: "personal", label: t("profile.tabs.personal"), icon: Activity },
     { id: "security", label: t("profile.tabs.security"), icon: KeyRound },
     { id: "privacy", label: t("profile.tabs.privacy"), icon: Shield },
+    { id: "integrations", label: t("profile.tabs.integrations"), icon: Link2 },
   ];
 
   const handleTabKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -1186,6 +1202,9 @@ export default function Profile({ user, onProfileUpdated }: ProfileProps) {
                 </div>
               </div>
             )}
+
+            {/* TAB 5: Connected Integrations */}
+            {activeTab === "integrations" && <IntegrationsTab />}
           </div>
         </div>
 

@@ -38,11 +38,11 @@ export default function Sidebar({
   const navItems = [
     { id: "dashboard", href: "/dashboard", icon: LayoutDashboard },
     { id: "biometrics", href: "/biometrics", icon: Activity },
+    { id: "activities", href: "/activities", icon: Flame },
   ];
 
   const wipItems = [
     { id: "nutrition", href: "/nutrition", label: "Nutrition", icon: UtensilsCrossed },
-    { id: "activities", href: "/activities", label: "Activities", icon: Flame },
   ];
 
   return (

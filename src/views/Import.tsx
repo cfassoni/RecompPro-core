@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { DragEvent, ChangeEvent } from "react";
 import { api } from "@/lib/api";
-import type { UploadResponse } from "@/lib/api";
+import type { UploadResponse, UserIntegration } from "@/lib/api";
+import { formatDecimal } from "@/lib/i18n";
+
 import {
   Upload,
   File,
@@ -15,6 +18,7 @@ import {
   Database,
   RefreshCw,
   Plus,
+  Scale,
 } from "lucide-react";
 
 interface ImportProps {
@@ -23,11 +27,24 @@ interface ImportProps {
 
 export default function Import({ onImportSuccess }: ImportProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<UploadResponse | null>(null);
+  const [fitdaysIntegration, setFitdaysIntegration] = useState<UserIntegration | null>(null);
+  const [isSyncingFitdays, setIsSyncingFitdays] = useState(false);
+
+  useEffect(() => {
+    api
+      .getIntegrations()
+      .then((list) => {
+        const fitdays = list.find((i) => i.provider === "fitdays" && i.status === "connected");
+        if (fitdays) setFitdaysIntegration(fitdays);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleDrag = (e: DragEvent) => {
     e.preventDefault();
@@ -88,12 +105,31 @@ export default function Import({ onImportSuccess }: ImportProps) {
     }
   };
 
+  const handleFitdaysSync = async () => {
+    setIsSyncingFitdays(true);
+    setError(null);
+    try {
+      const res = await api.syncFitdays(false);
+      setResult({
+        message: "Fitdays sync completed",
+        total_processed: res.result.totalProcessed,
+        inserted: res.result.inserted,
+        updated: res.result.updated,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      setError(msg || t("import.uploadError"));
+    } finally {
+      setIsSyncingFitdays(false);
+    }
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return `${formatDecimal(bytes / Math.pow(k, i), 2)} ${sizes[i]}`;
   };
 
   return (
@@ -113,6 +149,65 @@ export default function Import({ onImportSuccess }: ImportProps) {
             <span className="text-xs opacity-90">{error}</span>
           </div>
         </div>
+      )}
+
+      {/* Fitdays Cloud Quick Sync Card */}
+      {!result && (
+        fitdaysIntegration ? (
+          <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Scale className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-foreground">
+                  {t("import.fitdaysCard.title")}
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {t("import.fitdaysCard.connectedDesc", {
+                    email: fitdaysIntegration.accountIdentifier,
+                    profile:
+                      fitdaysIntegration.config.selectedProfileName ||
+                      `#${fitdaysIntegration.config.selectedSuid}`,
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleFitdaysSync}
+              disabled={isSyncingFitdays || isUploading}
+              className="px-4 py-2 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold text-xs rounded-lg transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-2 self-start sm:self-center shrink-0"
+            >
+              {isSyncingFitdays ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{t("import.fitdaysCard.syncing")}</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>{t("import.fitdaysCard.syncBtn")}</span>
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-xl border border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Scale className="h-4 w-4 shrink-0 text-primary" />
+              <span>{t("import.fitdaysCard.notConnectedDesc")}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/profile?tab=integrations")}
+              className="text-primary hover:underline font-semibold text-xs cursor-pointer self-start sm:self-center shrink-0"
+            >
+              {t("import.fitdaysCard.connectBtn")} &rarr;
+            </button>
+          </div>
+        )
       )}
 
       {/* Upload layout */}

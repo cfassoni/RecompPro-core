@@ -8,14 +8,16 @@ interface UserMenuProps {
   user: User | null;
   onLogout: () => void;
   onEditProfile: () => void;
+  onIntegrations?: () => void;
 }
 
-export default function UserMenu({ user, onLogout, onEditProfile }: UserMenuProps) {
+export default function UserMenu({ user, onLogout, onEditProfile, onIntegrations }: UserMenuProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const editProfileRef = useRef<HTMLButtonElement>(null);
+  const integrationsRef = useRef<HTMLButtonElement>(null);
   const logoutRef = useRef<HTMLButtonElement>(null);
 
   // Close dropdown when clicking outside
@@ -48,6 +50,8 @@ export default function UserMenu({ user, onLogout, onEditProfile }: UserMenuProp
       e.preventDefault();
     } else if (e.key === "ArrowDown") {
       if (document.activeElement === editProfileRef.current) {
+        integrationsRef.current?.focus();
+      } else if (document.activeElement === integrationsRef.current) {
         logoutRef.current?.focus();
       } else {
         editProfileRef.current?.focus();
@@ -55,6 +59,8 @@ export default function UserMenu({ user, onLogout, onEditProfile }: UserMenuProp
       e.preventDefault();
     } else if (e.key === "ArrowUp") {
       if (document.activeElement === logoutRef.current) {
+        integrationsRef.current?.focus();
+      } else if (document.activeElement === integrationsRef.current) {
         editProfileRef.current?.focus();
       } else {
         logoutRef.current?.focus();
@@ -142,6 +148,21 @@ export default function UserMenu({ user, onLogout, onEditProfile }: UserMenuProp
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer focus-visible:bg-muted focus-visible:outline-hidden"
           >
             {t("toolbar.editProfile")}
+          </button>
+
+          {/* Integrations */}
+          <button
+            ref={integrationsRef}
+            role="menuitem"
+            onClick={() => {
+              if (onIntegrations) {
+                onIntegrations();
+              }
+              setIsOpen(false);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer focus-visible:bg-muted focus-visible:outline-hidden"
+          >
+            {t("toolbar.integrations")}
           </button>
 
           <div className="h-[1px] bg-border my-1" />

@@ -13,6 +13,7 @@ interface TopToolbarProps {
   user: User | null;
   onLogout: () => void;
   onEditProfile: () => void;
+  onNavigateToIntegrations?: () => void;
   onUserUpdate?: (user: User) => void;
   onMobileMenuToggle: () => void;
 }
@@ -21,6 +22,7 @@ export default function TopToolbar({
   user,
   onLogout,
   onEditProfile,
+  onNavigateToIntegrations,
   onUserUpdate,
   onMobileMenuToggle,
 }: TopToolbarProps) {
@@ -51,7 +53,12 @@ export default function TopToolbar({
         <ThemeToggle variant="icon" />
 
         {/* User profile avatar / dropdown */}
-        <UserMenu user={user} onLogout={onLogout} onEditProfile={onEditProfile} />
+        <UserMenu
+          user={user}
+          onLogout={onLogout}
+          onEditProfile={onEditProfile}
+          onIntegrations={onNavigateToIntegrations}
+        />
       </div>
     </header>
   );

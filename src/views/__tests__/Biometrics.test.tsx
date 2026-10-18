@@ -55,6 +55,8 @@ vi.mock("@/lib/api", () => ({
     createSharedLink: vi.fn(),
     getSharedLinks: vi.fn(),
     uploadCSV: vi.fn(),
+    getIntegrations: vi.fn(),
+    syncFitdays: vi.fn(),
   },
 }));
 
@@ -142,6 +144,7 @@ describe("Biometrics View Component", () => {
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
     (api.getRecords as ReturnType<typeof vi.fn>).mockResolvedValue(mockRecords);
+    (api.getIntegrations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 
   it("renders Biometrics Analysis header and Bento highlight cards", async () => {
@@ -332,6 +335,53 @@ describe("Biometrics View Component", () => {
 
     await waitFor(() => {
       expect(screen.queryByText(/Import Completed Successfully!/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not render Sync button when no active integration exists", async () => {
+    (api.getIntegrations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    render(<Biometrics />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Import CSV/i })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: /^Sync$/i })).not.toBeInTheDocument();
+  });
+
+  it("renders Sync button when integration is connected and triggers sync on click", async () => {
+    (api.getIntegrations as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: 1,
+        provider: "fitdays",
+        accountIdentifier: "test@fitdays.com",
+        status: "connected",
+        lastSyncedAt: "2026-10-13T10:00:00Z",
+      },
+    ]);
+    (api.syncFitdays as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      result: {
+        totalProcessed: 5,
+        inserted: 2,
+        updated: 1,
+      },
+    });
+
+    render(<Biometrics />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Sync$/i })).toBeInTheDocument();
+    });
+
+    // Click Sync
+    fireEvent.click(screen.getByRole("button", { name: /^Sync$/i }));
+
+    await waitFor(() => {
+      expect(api.syncFitdays).toHaveBeenCalledWith(false);
+      expect(api.getRecords).toHaveBeenCalledTimes(2); // initial + after sync
+      expect(screen.getByText(/Synchronization Complete/i)).toBeInTheDocument();
+      expect(screen.getByText(/Synced: 2 added, 1 updated/i)).toBeInTheDocument();
     });
   });
 });

@@ -42,6 +42,7 @@ vi.mock("@/lib/api", () => ({
     deleteUserData: vi.fn(),
     deleteAccount: vi.fn(),
     getMe: vi.fn(),
+    getIntegrations: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -68,7 +69,7 @@ describe("Profile Tabbed Navigation and Functionality", () => {
     vi.clearAllMocks();
   });
 
-  it("renders all 4 tabs and defaults to Account Information", () => {
+  it("renders all 5 tabs and defaults to Account Information", () => {
     render(<Profile user={mockUser} onProfileUpdated={mockOnProfileUpdated} />);
 
     const accountTabs = screen.getAllByRole("tab", { name: /Account Information/i });
@@ -82,6 +83,9 @@ describe("Profile Tabbed Navigation and Functionality", () => {
 
     const privacyTabs = screen.getAllByRole("tab", { name: /Privacy/i });
     expect(privacyTabs.length).toBeGreaterThanOrEqual(1);
+
+    const integrationsTabs = screen.getAllByRole("tab", { name: /Integrations/i });
+    expect(integrationsTabs.length).toBeGreaterThanOrEqual(1);
 
     // Default active panel is Account Information
     expect(screen.getByRole("tabpanel", { name: /Account Information/i })).toBeInTheDocument();
@@ -222,5 +226,20 @@ describe("Profile Tabbed Navigation and Functionality", () => {
     expect(screen.getByRole("tabpanel", { name: /Privacy/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete My Data" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete Account" })).toBeInTheDocument();
+  });
+
+  it("switches to Integrations tab and displays Fitdays connection panel", async () => {
+    render(<Profile user={mockUser} onProfileUpdated={mockOnProfileUpdated} />);
+
+    // Switch to Integrations tab
+    const integrationsTab = screen.getAllByRole("tab", { name: /Integrations/i })[0];
+    fireEvent.click(integrationsTab);
+
+    expect(screen.getByRole("tabpanel", { name: /Integrations/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText("Fitdays Cloud")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Connect & Verify" })).toBeInTheDocument();
+    });
   });
 });

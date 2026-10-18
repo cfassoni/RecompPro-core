@@ -246,6 +246,91 @@ export async function ensureTablesExist(): Promise<void> {
     );
   `);
 
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS user_integrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      account_identifier TEXT NOT NULL,
+      encrypted_credentials TEXT NOT NULL,
+      config_json TEXT,
+      status TEXT NOT NULL DEFAULT 'connected',
+      last_synced_at DATETIME,
+      last_sync_error TEXT,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS _user_provider_uc ON user_integrations (user_id, provider);
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS exercise_templates (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      primary_muscle_group TEXT,
+      secondary_muscle_groups_json TEXT,
+      equipment TEXT,
+      is_custom INTEGER DEFAULT 0 NOT NULL,
+      thumbnail_url TEXT,
+      created_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS workouts (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      start_time DATETIME NOT NULL,
+      end_time DATETIME NOT NULL,
+      duration_seconds INTEGER NOT NULL,
+      total_volume_kg REAL DEFAULT 0 NOT NULL,
+      session_calories_burned REAL DEFAULT 0 NOT NULL,
+      epoc_calories_burned REAL DEFAULT 0 NOT NULL,
+      total_calories_burned REAL DEFAULT 0 NOT NULL,
+      avg_rpe REAL,
+      source TEXT DEFAULT 'hevy' NOT NULL,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS _user_workout_uc ON workouts (user_id, id);
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS workout_exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      workout_id TEXT NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+      exercise_template_id TEXT REFERENCES exercise_templates(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      "index" INTEGER DEFAULT 0 NOT NULL,
+      notes TEXT,
+      superset_id INTEGER
+    );
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS workout_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      workout_exercise_id INTEGER NOT NULL REFERENCES workout_exercises(id) ON DELETE CASCADE,
+      "index" INTEGER DEFAULT 0 NOT NULL,
+      type TEXT DEFAULT 'normal' NOT NULL,
+      weight_kg REAL,
+      reps INTEGER,
+      distance_meters REAL,
+      duration_seconds INTEGER,
+      rpe REAL,
+      custom_metric REAL
+    );
+  `);
+
   // Defensive migrations for existing SQLite databases
   try {
     await db.run(sql`ALTER TABLE recomp_records ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`);
