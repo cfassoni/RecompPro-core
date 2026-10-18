@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { vi, describe, it, expect } from "vitest";
 import Version from "../Version";
 
-const VERSION = "0.7.1";
+const VERSION = "0.8.0";
 
 // Mock react-i18next
 vi.mock("react-i18next", () => ({
