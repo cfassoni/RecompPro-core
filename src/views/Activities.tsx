@@ -146,10 +146,7 @@ export default function Activities() {
   const kpiVolumeDisplay =
     kpiTotalVolumeKg >= 1000
       ? {
-          value: (kpiTotalVolumeKg / 1000).toLocaleString(undefined, {
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 1,
-          }),
+          value: Math.round(kpiTotalVolumeKg / 1000).toLocaleString(),
           unit: "t",
         }
       : {

@@ -91,7 +91,7 @@ describe("Activities View Component", () => {
     await waitFor(() => {
       expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
       expect(screen.getByText("Training Overview")).toBeInTheDocument();
-      expect(screen.getAllByText(/5\.2/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("5")).toBeInTheDocument();
       expect(screen.getAllByText(/365/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/\+45 kcal/i)).toBeInTheDocument();
       expect(screen.getAllByText(/8\.5/i).length).toBeGreaterThanOrEqual(1);
