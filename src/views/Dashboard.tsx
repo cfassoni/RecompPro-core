@@ -4,8 +4,15 @@ import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { DashboardSummary } from "@/lib/api";
-import { formatDate, formatDateTime } from "@/lib/i18n";
+import type {
+  DashboardSummary,
+  WorkoutStatsResponse,
+  MuscleReadinessResponse,
+} from "@/lib/api";
+import WorkoutStatsWidget from "@/components/activities/WorkoutStatsWidget";
+import WorkoutCalendarWidget from "@/components/activities/WorkoutCalendarWidget";
+import MuscleReadinessWidget from "@/components/activities/MuscleReadinessWidget";
+import { formatDate, formatDateTime, formatDecimal, formatDelta } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthContext";
 import {
   Scale,
@@ -57,6 +64,22 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
   const [bodyFatUnit, setBodyFatUnit] = useState<"pct" | "kg">("pct");
   const [muscleUnit, setMuscleUnit] = useState<"kg" | "pct">("kg");
 
+  // Workout stats & calendar state
+  const [workoutStats, setWorkoutStats] = useState<WorkoutStatsResponse | null>(null);
+  const [statsPeriod, setStatsPeriod] = useState<PeriodFilter>("3m");
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+
+  // Muscle readiness state
+  const [readiness, setReadiness] = useState<MuscleReadinessResponse | null>(null);
+  const [isReadinessLoading, setIsReadinessLoading] = useState(true);
+
+  const getMuscleGroupName = (group: string) => {
+    const normalized = group === "quads" ? "quadriceps" : group;
+    const key = `activities.muscleGroups.${normalized}`;
+    const translated = t(key);
+    return translated !== key ? translated : group;
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
       try {
@@ -107,6 +130,38 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
     };
 
     fetchSummary();
+  }, []);
+
+  useEffect(() => {
+    const fetchWorkoutStats = async () => {
+      try {
+        setIsStatsLoading(true);
+        const data = await api.getWorkoutStats(statsPeriod);
+        setWorkoutStats(data);
+      } catch (err: unknown) {
+        console.error("Failed to load workout stats:", err);
+      } finally {
+        setIsStatsLoading(false);
+      }
+    };
+
+    fetchWorkoutStats();
+  }, [statsPeriod]);
+
+  useEffect(() => {
+    const fetchReadiness = async () => {
+      try {
+        setIsReadinessLoading(true);
+        const data = await api.getMuscleReadiness();
+        setReadiness(data);
+      } catch (err: unknown) {
+        console.error("Failed to load muscle readiness:", err);
+      } finally {
+        setIsReadinessLoading(false);
+      }
+    };
+
+    fetchReadiness();
   }, []);
 
   // Filter history data according to selected period
@@ -177,8 +232,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
 
   const formatChange = (val: number | null | undefined, unit: string, lowerIsBetter: boolean) => {
     if (val === null || val === undefined) return "0";
-    const sign = val > 0 ? "+" : "";
-    const formatted = `${sign}${val.toFixed(2)}${unit}`;
+    const delta = formatDelta(val, 2, unit);
+    const formatted = delta ? delta.formatted : "0";
 
     let colorClass = "text-muted-foreground bg-muted";
     let IconComponent = null;
@@ -290,14 +345,14 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
               <span className="font-display-metrics text-foreground">
-                {summary?.current_weight}
+                {formatDecimal(summary?.current_weight, 1)}
               </span>
               <span className="text-sm font-normal text-muted-foreground">kg</span>
             </div>
             <div className="flex items-center gap-2 pt-1">
               {formatChange(summary!.weight_change, " kg", true)}
               <span className="text-xs text-muted-foreground font-data-mono">
-                {t("dashboard.starting")} {summary?.starting_weight} kg
+                {t("dashboard.starting")} {formatDecimal(summary?.starting_weight, 1)} kg
               </span>
             </div>
           </div>
@@ -344,8 +399,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
             <div className="flex items-baseline gap-2">
               <span className="font-display-metrics text-foreground">
                 {bodyFatUnit === "pct"
-                  ? summary?.current_body_fat
-                  : summary?.current_body_fat_mass}
+                  ? formatDecimal(summary?.current_body_fat, 1)
+                  : formatDecimal(summary?.current_body_fat_mass, 1)}
               </span>
               <span className="text-sm font-normal text-muted-foreground">
                 {bodyFatUnit === "pct" ? "%" : "kg"}
@@ -358,8 +413,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
               <span className="text-xs text-muted-foreground font-data-mono">
                 {t("dashboard.starting")}{" "}
                 {bodyFatUnit === "pct"
-                  ? `${summary?.starting_body_fat}%`
-                  : `${summary?.starting_body_fat_mass} kg`}
+                  ? `${formatDecimal(summary?.starting_body_fat, 1)}%`
+                  : `${formatDecimal(summary?.starting_body_fat_mass, 1)} kg`}
               </span>
             </div>
           </div>
@@ -406,8 +461,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
             <div className="flex items-baseline gap-2">
               <span className="font-display-metrics text-foreground">
                 {muscleUnit === "kg"
-                  ? summary?.current_skeletal_muscle_mass
-                  : summary?.current_skeletal_muscle_mass_pct}
+                  ? formatDecimal(summary?.current_skeletal_muscle_mass, 1)
+                  : formatDecimal(summary?.current_skeletal_muscle_mass_pct, 1)}
               </span>
               <span className="text-sm font-normal text-muted-foreground">
                 {muscleUnit === "kg" ? "kg" : "%"}
@@ -420,8 +475,8 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
               <span className="text-xs text-muted-foreground font-data-mono">
                 {t("dashboard.starting")}{" "}
                 {muscleUnit === "kg"
-                  ? `${summary?.starting_skeletal_muscle_mass} kg`
-                  : `${summary?.starting_skeletal_muscle_mass_pct}%`}
+                  ? `${formatDecimal(summary?.starting_skeletal_muscle_mass, 1)} kg`
+                  : `${formatDecimal(summary?.starting_skeletal_muscle_mass_pct, 1)}%`}
               </span>
             </div>
           </div>
@@ -558,7 +613,7 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
                     <Tooltip
                       formatter={(value: unknown, name?: unknown) => {
                         const valNum =
-                          typeof value === "number" ? value.toFixed(1) : String(value);
+                          typeof value === "number" ? formatDecimal(value, 1) : String(value);
                         const nameStr = String(name || "");
                         if (nameStr.includes("%")) return [`${valNum}%`, nameStr];
                         if (nameStr.includes("kg")) return [`${valNum} kg`, nameStr];
@@ -641,8 +696,9 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
                     <h3 className="text-sm font-bold text-foreground">
                       {t("dashboard.upNext")}
                     </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {t("dashboard.upNextSubtitle")}
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {readiness?.smartRecommendation?.message ||
+                        t("dashboard.upNextSubtitle")}
                     </p>
                   </div>
                 </div>
@@ -654,9 +710,21 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
               {/* Routine summary */}
               <div className="p-4 bg-muted/40 border border-border rounded-xl space-y-3 my-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-foreground">
-                    {t("dashboard.routineCategory")}
-                  </span>
+                  <div>
+                    <span className="font-semibold text-sm text-foreground block">
+                      {t("dashboard.routineCategory")}
+                    </span>
+                    {readiness?.smartRecommendation?.suggestedFocus && (
+                      <span className="text-[11px] text-primary font-medium">
+                        {t("activities.readiness.suggestedFocus")}:{" "}
+                        {getMuscleGroupName(
+                          typeof readiness.smartRecommendation.suggestedFocus === "string"
+                            ? readiness.smartRecommendation.suggestedFocus
+                            : readiness.smartRecommendation.suggestedFocus[0]
+                        )}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs font-data-mono font-medium text-muted-foreground">
                     65 min
                   </span>
@@ -670,8 +738,20 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
                     <span className="h-2 w-3 rounded-xs bg-emerald-500" />
                     <span className="h-2 w-3 rounded-xs bg-emerald-500" />
                     <span className="h-2 w-3 rounded-xs bg-emerald-500" />
-                    <span className="h-2 w-3 rounded-xs bg-emerald-500" />
-                    <span className="h-2 w-3 rounded-xs bg-muted border border-border" />
+                    <span
+                      className={`h-2 w-3 rounded-xs ${
+                        readiness?.overallReadiness === "exhausted"
+                          ? "bg-muted border border-border"
+                          : "bg-emerald-500"
+                      }`}
+                    />
+                    <span
+                      className={`h-2 w-3 rounded-xs ${
+                        readiness?.overallReadiness === "ready"
+                          ? "bg-emerald-500"
+                          : "bg-muted border border-border"
+                      }`}
+                    />
                   </div>
                 </div>
               </div>
@@ -683,15 +763,21 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
                 </span>
                 <ul className="space-y-2 text-xs">
                   <li className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/50">
-                    <span className="font-medium text-foreground">{t("dashboard.workoutExercise1")}</span>
+                    <span className="font-medium text-foreground">
+                      {t("dashboard.workoutExercise1")}
+                    </span>
                     <span className="font-data-mono text-muted-foreground">4 × 8-10</span>
                   </li>
                   <li className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/50">
-                    <span className="font-medium text-foreground">{t("dashboard.workoutExercise2")}</span>
+                    <span className="font-medium text-foreground">
+                      {t("dashboard.workoutExercise2")}
+                    </span>
                     <span className="font-data-mono text-muted-foreground">3 × 6-8</span>
                   </li>
                   <li className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/50">
-                    <span className="font-medium text-foreground">{t("dashboard.workoutExercise3")}</span>
+                    <span className="font-medium text-foreground">
+                      {t("dashboard.workoutExercise3")}
+                    </span>
                     <span className="font-data-mono text-muted-foreground">4 × 10-12</span>
                   </li>
                 </ul>
@@ -710,6 +796,31 @@ export default function Dashboard({ onNavigateToImport }: DashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Strength Workouts & Calendar Bento Grid Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7">
+          <WorkoutStatsWidget
+            stats={workoutStats}
+            selectedPeriod={statsPeriod}
+            onPeriodChange={(p) => setStatsPeriod(p)}
+            isLoading={isStatsLoading}
+          />
+        </div>
+        <div className="lg:col-span-5">
+          <WorkoutCalendarWidget
+            calendarDays={workoutStats?.calendarDays || {}}
+            isLoading={isStatsLoading}
+          />
+        </div>
+      </div>
+
+      {/* Muscle Group Readiness Widget */}
+      <MuscleReadinessWidget
+        readiness={readiness}
+        isLoading={isReadinessLoading}
+        compact={true}
+      />
 
       {/* Nutrition Today Card (Bottom Wide Bento Card) — [Interim Test Lab Mockup] */}
       {enableWipPages && (

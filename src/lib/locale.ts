@@ -27,3 +27,12 @@ export function resolveLanguage(
   }
   return 'en';
 }
+
+export function getLocaleTag(lang?: string | null): string {
+  if (!lang) return 'en-US';
+  const clean = lang.toLowerCase();
+  if (clean.startsWith('pt')) return 'pt-BR';
+  if (clean.startsWith('es')) return 'es-ES';
+  return 'en-US';
+}
+

@@ -82,6 +82,244 @@ export interface FitdaysSyncResponse {
   lastSyncedAt?: string;
 }
 
+export interface HevyStatusResponse {
+  connected: boolean;
+  integration?: {
+    id: number;
+    accountIdentifier: string;
+    status: string;
+    lastSyncedAt: string | null;
+    lastSyncError: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  config?: {
+    webhookToken?: string;
+    hevyUserId?: string;
+    username?: string;
+  };
+  webhookUrl?: string;
+}
+
+export interface ConnectHevyResponse {
+  success: boolean;
+  message: string;
+  accountIdentifier: string;
+  webhookToken: string;
+  webhookUrl: string;
+  templateCount: number;
+}
+
+export interface HevySyncResponse {
+  success: boolean;
+  message?: string;
+  syncedWorkouts: number;
+  totalWorkouts: number;
+  inserted?: number;
+  updated?: number;
+  total?: number;
+  errors?: string[];
+}
+
+export interface WorkoutSet {
+  id: number;
+  index: number;
+  type: string;
+  weightKg: number | null;
+  reps: number | null;
+  rpe: number | null;
+  durationSeconds: number | null;
+  distanceMeters: number | null;
+  customMetric: number | null;
+  isProgression?: boolean;
+  progressionType?: "weight_pr" | "reps_pr" | "1rm_pr" | null;
+  deltaWeightKg?: number | null;
+  deltaReps?: number | null;
+  previousWeightKg?: number | null;
+  est1RmKg?: number | null;
+  isAssisted?: boolean;
+}
+
+export interface WorkoutExercise {
+  id: number;
+  title: string;
+  index: number;
+  notes: string | null;
+  supersetId: number | null;
+  primaryMuscleGroup: string | null;
+  equipment: string | null;
+  thumbnailUrl: string | null;
+  movementCategory?: string;
+  isAssisted?: boolean;
+  targetRepBracket?: { minReps: number; maxReps: number };
+  effectiveRpe?: number;
+  rpeSource?: string;
+  wasSanitized?: boolean;
+  hasProgression?: boolean;
+  progressionCount?: number;
+  bestProgressionBadge?: {
+    isProgression: boolean;
+    progressionType: string | null;
+    deltaWeightKg: number | null;
+    deltaReps: number | null;
+    previousWeightKg: number | null;
+    isAssisted?: boolean;
+  } | null;
+  progressionPrescription?: {
+    action: "INCREASE_LOAD" | "MAINTAIN_LOAD_PUSH_REPS" | "REDUCE_LOAD_RESET";
+    nextLoadKg: number;
+    targetRepBracket: { minReps: number; maxReps: number };
+    reasoning: string;
+    isAssisted?: boolean;
+  } | null;
+  sets: WorkoutSet[];
+}
+
+export interface WorkoutItem {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  totalVolumeKg: number;
+  sessionCaloriesBurned: number;
+  epocCaloriesBurned: number;
+  totalCaloriesBurned: number;
+  avgRpe: number | null;
+  source: string;
+  exerciseCount: number;
+  setCount: number;
+  primaryMuscleGroups?: string[];
+  hasProgression?: boolean;
+  progressionCount?: number;
+  exercises?: {
+    id: number | string;
+    title: string;
+    index?: number;
+    primaryMuscleGroup?: string | null;
+    equipment?: string | null;
+    setsCount?: number;
+    [key: string]: unknown;
+  }[];
+}
+
+export interface WorkoutDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  totalVolumeKg: number;
+  sessionCaloriesBurned: number;
+  epocCaloriesBurned: number;
+  totalCaloriesBurned: number;
+  avgRpe: number | null;
+  source: string;
+  hasProgression?: boolean;
+  progressionCount?: number;
+  exercises: WorkoutExercise[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MuscleReadinessItem {
+  group: string;
+  name: string;
+  status: "ready" | "recovering" | "exhausted";
+  clinicalStatus?: "READY" | "RECOVERING_TRAINABLE" | "FATIGUED_REST_REQUIRED";
+  recommendedVolumeMultiplier?: 1.0 | 0.8 | 0.0;
+  muscleCategory?: "large" | "small";
+  readinessScore: number;
+  lastTrainedAt: string | null;
+  hoursSinceLastTrained: number | null;
+  recommendedRecoveryHours: number;
+  remainingRecoveryHours: number;
+  lastVolumeKg: number;
+  lastSetCount: number;
+  lastAvgRpe: number | null;
+}
+
+export interface PeriodExerciseProgressionItem {
+  canonicalKey: string;
+  title: string;
+  primaryMuscleGroup: string | null;
+  isAssisted: boolean;
+  startWeightKg: number;
+  currentWeightKg: number;
+  deltaWeightKg: number;
+  pctChange: number;
+  bestWeightKg: number;
+  bestRepsAtWeight: number;
+  bestEst1RmKg: number;
+  prCountInPeriod: number;
+  lastProgressedAt: string;
+}
+
+export interface WorkoutProgressionsResponse {
+  period: "all" | "1m" | "3m" | "6m" | "1y";
+  items: PeriodExerciseProgressionItem[];
+  totalPrsInPeriod: number;
+  exercisesProgressedCount: number;
+}
+
+export interface MuscleReadinessResponse {
+  muscleGroups: MuscleReadinessItem[];
+  overallReadiness: "ready" | "recovering" | "exhausted";
+  smartRecommendation: {
+    status: string;
+    readyGroups: string[];
+    recoveringGroups: string[];
+    suggestedFocus: string[];
+    message: string;
+  };
+  userProfile: {
+    gender: string;
+    age: number | null;
+    effectiveWeightKg: number;
+  };
+  muscles?: Record<string, unknown>;
+}
+
+export interface WorkoutStatsSummary {
+  totalWorkouts: number;
+  totalDurationSeconds: number;
+  totalVolumeKg: number;
+  totalReps: number;
+  currentWeekDurationSeconds: number;
+  currentWeekVolumeKg: number;
+  currentWeekReps: number;
+  currentWeekWorkoutsCount: number;
+}
+
+export interface WorkoutChartPoint {
+  label: string;
+  startDate: string;
+  endDate: string;
+  durationHours: number;
+  durationSeconds: number;
+  volumeKg: number;
+  reps: number;
+  workoutsCount: number;
+}
+
+export interface WorkoutCalendarItem {
+  id: string;
+  title: string;
+  startTime: string;
+  durationSeconds: number;
+  totalVolumeKg: number;
+  repsCount: number;
+}
+
+export interface WorkoutStatsResponse {
+  period: "all" | "1m" | "3m" | "6m" | "1y";
+  summary: WorkoutStatsSummary;
+  chartData: WorkoutChartPoint[];
+  calendarDays: Record<string, WorkoutCalendarItem[]>;
+}
+
 export interface WeightHistoryPoint {
   date: string;
   weight: number;
@@ -691,6 +929,90 @@ export const api = {
     return apiFetch<{ success: boolean; config: UserIntegrationConfig }>("/api/integrations/fitdays", {
       method: "PATCH",
       json: config,
+    });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Hevy Strength Integration & Workouts
+  // ---------------------------------------------------------------------------
+  async connectHevy(apiKey: string): Promise<ConnectHevyResponse> {
+    return apiFetch<ConnectHevyResponse>("/api/integrations/hevy/connect", {
+      method: "POST",
+      json: { apiKey },
+    });
+  },
+
+  async getHevyStatus(): Promise<HevyStatusResponse> {
+    return apiFetch<HevyStatusResponse>("/api/integrations/hevy", {
+      method: "GET",
+    });
+  },
+
+  async syncHevy(page = 1, pageSize = 10): Promise<HevySyncResponse> {
+    return apiFetch<HevySyncResponse>("/api/integrations/hevy/sync", {
+      method: "POST",
+      json: { page, pageSize },
+    });
+  },
+
+  async regenerateHevyWebhook(): Promise<{ success: boolean; webhookToken: string; webhookUrl: string }> {
+    return apiFetch<{ success: boolean; webhookToken: string; webhookUrl: string }>(
+      "/api/integrations/hevy/regenerate-webhook",
+      {
+        method: "POST",
+      }
+    );
+  },
+
+  async disconnectHevy(deleteData = false): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>("/api/integrations/hevy", {
+      method: "DELETE",
+      json: { deleteData },
+    });
+  },
+
+  async getWorkouts(
+    page = 1,
+    pageSize: number | "all" = 20
+  ): Promise<{
+    workouts: WorkoutItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  }> {
+    return apiFetch<{
+      workouts: WorkoutItem[];
+      total: number;
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
+    }>(`/api/workouts?page=${page}&pageSize=${pageSize}`, {
+      method: "GET",
+    });
+  },
+
+  async getWorkoutDetails(id: string): Promise<WorkoutDetail> {
+    return apiFetch<WorkoutDetail>(`/api/workouts/${id}`, {
+      method: "GET",
+    });
+  },
+
+  async getMuscleReadiness(): Promise<MuscleReadinessResponse> {
+    return apiFetch<MuscleReadinessResponse>("/api/workouts/readiness", {
+      method: "GET",
+    });
+  },
+
+  async getWorkoutStats(period: "all" | "1m" | "3m" | "6m" | "1y" = "3m"): Promise<WorkoutStatsResponse> {
+    return apiFetch<WorkoutStatsResponse>(`/api/workouts/stats?period=${period}`, {
+      method: "GET",
+    });
+  },
+
+  async getWorkoutProgressions(period: "all" | "1m" | "3m" | "6m" | "1y" = "1m"): Promise<WorkoutProgressionsResponse> {
+    return apiFetch<WorkoutProgressionsResponse>(`/api/workouts/progression?period=${period}`, {
+      method: "GET",
     });
   },
 };

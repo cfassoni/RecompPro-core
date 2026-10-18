@@ -34,6 +34,11 @@ export const GET = withAuth(async (_req, { user }) => {
           skipWeightOnly: config.skipWeightOnly ?? true,
           profiles: config.profiles ?? [],
           devices: config.devices ?? [],
+          webhookToken: config.webhookToken,
+          webhookPath: config.webhookToken
+            ? `/api/integrations/hevy/webhook/${config.webhookToken}`
+            : undefined,
+          ...config,
         },
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),

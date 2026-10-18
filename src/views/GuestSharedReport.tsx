@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import type { SharedLinkPublicMetadata, SharedLinkPublicData, RecompRecord } from "@/lib/api";
-import { formatDate, formatDateTime } from "@/lib/i18n";
+import { formatDate, formatDateTime, formatDecimal, formatDelta, formatInteger } from "@/lib/i18n";
+
 import LanguageMenu from "@/components/LanguageMenu";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
@@ -156,8 +157,8 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
 
   const formatChange = (val: number | null | undefined, unit: string, lowerIsBetter: boolean) => {
     if (val === null || val === undefined) return "0";
-    const sign = val > 0 ? "+" : "";
-    const formatted = `${sign}${val.toFixed(2)}${unit}`;
+    const delta = formatDelta(val, 2, unit);
+    const formatted = delta ? delta.formatted : "0";
 
     let colorClass = "text-muted-foreground bg-muted";
     if (val !== 0) {
@@ -754,10 +755,10 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">{record.weight.toFixed(1)} kg</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{record.bmi.toFixed(1)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{record.body_fat_pct.toFixed(1)}%</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{record.skeletal_muscle_mass.toFixed(1)} kg</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{formatDecimal(record.weight, 1)} kg</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{record.bmi !== null && record.bmi !== undefined ? formatDecimal(record.bmi, 1) : "-"}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{record.body_fat_pct !== null && record.body_fat_pct !== undefined ? `${formatDecimal(record.body_fat_pct, 1)}%` : "-"}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{record.skeletal_muscle_mass !== null && record.skeletal_muscle_mass !== undefined ? `${formatDecimal(record.skeletal_muscle_mass, 1)} kg` : "-"}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
@@ -823,7 +824,7 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
                     <div className="text-left">
                       <h4 className="text-sm font-semibold">{selectedRecord.report.filename}</h4>
                       <p className="text-xs text-muted-foreground">
-                        {(selectedRecord.report.file_size / (1024 * 1024)).toFixed(2)} MB
+                        {formatDecimal(selectedRecord.report.file_size / (1024 * 1024), 2)} MB
                       </p>
                     </div>
                   </div>
@@ -847,15 +848,15 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="bg-muted/10 p-3 rounded-lg border border-border text-center">
                     <span className="text-xs text-muted-foreground">{t("dashboard.weight")}</span>
-                    <p className="text-lg font-bold mt-1 text-foreground">{selectedRecord.weight.toFixed(1)} kg</p>
+                    <p className="text-lg font-bold mt-1 text-foreground">{formatDecimal(selectedRecord.weight, 1)} kg</p>
                   </div>
                   <div className="bg-muted/10 p-3 rounded-lg border border-border text-center">
                     <span className="text-xs text-muted-foreground">{t("history.table.bmi")}</span>
-                    <p className="text-lg font-bold mt-1 text-foreground">{selectedRecord.bmi.toFixed(1)}</p>
+                    <p className="text-lg font-bold mt-1 text-foreground">{formatDecimal(selectedRecord.bmi, 1)}</p>
                   </div>
                   <div className="bg-muted/10 p-3 rounded-lg border border-border text-center">
                     <span className="text-xs text-muted-foreground">{t("dashboard.bodyFat")}</span>
-                    <p className="text-lg font-bold mt-1 text-foreground">{selectedRecord.body_fat_pct.toFixed(1)}%</p>
+                    <p className="text-lg font-bold mt-1 text-foreground">{formatDecimal(selectedRecord.body_fat_pct, 1)}%</p>
                   </div>
                   <div className="bg-muted/10 p-3 rounded-lg border border-border text-center">
                     <span className="text-xs text-muted-foreground">{t("history.table.bodyScore")}</span>
@@ -872,7 +873,7 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm border-t border-border pt-3">
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.subcutaneousFat")}</span>
-                    <span className="font-semibold">{selectedRecord.subcutaneous_fat_pct.toFixed(1)}%</span>
+                    <span className="font-semibold">{formatDecimal(selectedRecord.subcutaneous_fat_pct, 1)}%</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.visceralFatLevel")}</span>
@@ -880,23 +881,23 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.bodyWaterPct")}</span>
-                    <span className="font-semibold">{selectedRecord.body_water_pct.toFixed(1)}%</span>
+                    <span className="font-semibold">{formatDecimal(selectedRecord.body_water_pct, 1)}%</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.muscleMass")}</span>
-                    <span className="font-semibold">{selectedRecord.muscle_mass.toFixed(1)} kg</span>
+                    <span className="font-semibold">{formatDecimal(selectedRecord.muscle_mass, 1)} kg</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.boneMass")}</span>
-                    <span className="font-semibold">{selectedRecord.bone_mass.toFixed(1)} kg</span>
+                    <span className="font-semibold">{formatDecimal(selectedRecord.bone_mass, 1)} kg</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.proteinPct")}</span>
-                    <span className="font-semibold">{selectedRecord.protein_pct.toFixed(1)}%</span>
+                    <span className="font-semibold">{formatDecimal(selectedRecord.protein_pct, 1)}%</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.bmr")}</span>
-                    <span className="font-semibold">{selectedRecord.bmr.toFixed(0)} kcal</span>
+                    <span className="font-semibold">{formatInteger(selectedRecord.bmr)} kcal</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-border/40">
                     <span className="text-muted-foreground">{t("history.drawer.metabolicAge")}</span>
@@ -959,10 +960,10 @@ export default function GuestSharedReport({ token }: GuestSharedReportProps) {
                       ].map((seg) => (
                         <div key={seg.name} className="grid grid-cols-5 p-2 text-center items-center hover:bg-muted/10">
                           <span className="text-left font-medium pl-2">{seg.name}</span>
-                          <span>{seg.fatM?.toFixed(1)} kg</span>
-                          <span>{seg.fatP?.toFixed(1)}%</span>
-                          <span>{seg.musM?.toFixed(1)} kg</span>
-                          <span>{seg.musP?.toFixed(1)}%</span>
+                          <span>{seg.fatM !== null && seg.fatM !== undefined ? `${formatDecimal(seg.fatM, 1)} kg` : "—"}</span>
+                          <span>{seg.fatP !== null && seg.fatP !== undefined ? `${formatDecimal(seg.fatP, 1)}%` : "—"}</span>
+                          <span>{seg.musM !== null && seg.musM !== undefined ? `${formatDecimal(seg.musM, 1)} kg` : "—"}</span>
+                          <span>{seg.musP !== null && seg.musP !== undefined ? `${formatDecimal(seg.musP, 1)}%` : "—"}</span>
                         </div>
                       ))}
                     </div>

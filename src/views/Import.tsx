@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import type { DragEvent, ChangeEvent } from "react";
 import { api } from "@/lib/api";
 import type { UploadResponse, UserIntegration } from "@/lib/api";
+import { formatDecimal } from "@/lib/i18n";
+
 import {
   Upload,
   File,
@@ -127,7 +129,7 @@ export default function Import({ onImportSuccess }: ImportProps) {
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return `${formatDecimal(bytes / Math.pow(k, i), 2)} ${sizes[i]}`;
   };
 
   return (
