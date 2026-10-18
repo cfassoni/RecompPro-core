@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { resolveLanguage } from "@/lib/locale";
 
 const geistSans = Geist({
@@ -44,10 +45,19 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('recomp_pro_theme')||localStorage.getItem('theme');var isDark=t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(isDark){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
-        <AuthProvider initialLang={initialLang} enableWipPages={enableWipPages}>
-          {children}
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider initialLang={initialLang} enableWipPages={enableWipPages}>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

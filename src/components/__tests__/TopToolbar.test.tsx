@@ -20,11 +20,19 @@ vi.mock("react-i18next", () => ({
         "toolbar.logout": "Logout",
         "toolbar.switchToDark": "Switch to Dark Mode",
         "toolbar.switchToLight": "Switch to Light Mode",
+        "toolbar.switchToSystem": "Switch to System Mode",
+        "toolbar.themeSystem": "System",
+        "toolbar.themeLight": "Light",
+        "toolbar.themeDark": "Dark",
         "toolbar.languages": "Languages",
         "toolbar.userOptions": "User options",
       };
       if (key === "toolbar.currentLanguage") {
         return `Language selector, current language: ${options?.lang || "English"}`;
+      }
+      if (key === "toolbar.themeTooltip") {
+        const opt = options as { current?: string; next?: string } | undefined;
+        return `Theme: ${opt?.current || "System"} (click to switch to ${opt?.next || "Light"})`;
       }
       return translations[key] || key;
     },
