@@ -1,99 +1,108 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Monitor } from "lucide-react";
 import IconButton from "./IconButton";
+import { useTheme, type ThemePreference } from "@/context/ThemeContext";
 
 interface ThemeToggleProps {
   variant?: "icon" | "full";
 }
 
 export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [mounted, setMounted] = useState(false);
+  const { theme, cycleTheme, mounted } = useTheme();
+  const { t } = useTranslation();
 
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window === "undefined" || typeof localStorage === "undefined") return;
-    try {
-      const saved = localStorage.getItem("theme");
-      if (saved === "dark" || saved === "light") {
-        setTheme(saved);
-        if (saved === "dark") {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
-      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setTheme("dark");
-        document.documentElement.classList.add("dark");
-      }
-    } catch {
-      // Ignore localStorage access restrictions
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "light" ? "dark" : "light";
-    setTheme(nextTheme);
-    if (nextTheme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("theme", nextTheme);
-      }
-    } catch {
-      // Ignore localStorage write failures
-    }
+  const getNextTheme = (curr: ThemePreference): ThemePreference => {
+    if (curr === "system") return "light";
+    if (curr === "light") return "dark";
+    return "system";
   };
 
-  const { t } = useTranslation();
-  const titleText = theme === "light" ? t("toolbar.switchToDark") : t("toolbar.switchToLight");
+  const nextTheme = getNextTheme(theme);
+
+  const getThemeLabel = (pref: ThemePreference): string => {
+    if (pref === "system") return t("toolbar.themeSystem");
+    if (pref === "light") return t("toolbar.themeLight");
+    return t("toolbar.themeDark");
+  };
+
+  const getSwitchLabel = (pref: ThemePreference): string => {
+    if (pref === "system") return t("toolbar.switchToSystem");
+    if (pref === "light") return t("toolbar.switchToLight");
+    return t("toolbar.switchToDark");
+  };
+
+  const currentLabel = getThemeLabel(theme);
+  const nextLabel = getThemeLabel(nextTheme);
+  const nextActionLabel = getSwitchLabel(nextTheme);
+
+  const titleText = t("toolbar.themeTooltip", {
+    current: currentLabel,
+    next: nextLabel,
+    defaultValue: `Theme: ${currentLabel} (click to switch to ${nextLabel})`,
+  });
+
+  const renderIcon = (pref: ThemePreference) => {
+    if (pref === "light") {
+      return <Sun className="h-5 w-5" />;
+    }
+    if (pref === "dark") {
+      return <Moon className="h-5 w-5" />;
+    }
+    return <Monitor className="h-5 w-5" />;
+  };
 
   if (!mounted) {
+    const defaultTitle = t("toolbar.themeTooltip", {
+      current: t("toolbar.themeSystem"),
+      next: t("toolbar.themeLight"),
+      defaultValue: "Theme: System (click to switch to Light)",
+    });
+
+    if (variant === "icon") {
+      return (
+        <IconButton title={defaultTitle} aria-label={defaultTitle}>
+          <Monitor className="h-5 w-5" />
+        </IconButton>
+      );
+    }
+
     return (
-      <IconButton
-        title={titleText || "Toggle theme"}
-        aria-label={titleText || "Toggle theme"}
+      <button
+        type="button"
+        className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+        title={defaultTitle}
+        aria-label={defaultTitle}
       >
-        <Moon className="h-5 w-5" />
-      </IconButton>
+        <Monitor className="h-5 w-5" />
+        <span className="text-sm font-medium">{t("toolbar.switchToLight")}</span>
+      </button>
     );
   }
 
   if (variant === "icon") {
     return (
       <IconButton
-        onClick={toggleTheme}
+        onClick={cycleTheme}
         title={titleText}
         aria-label={titleText}
       >
-        {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+        {renderIcon(theme)}
       </IconButton>
     );
   }
 
   return (
     <button
-      onClick={toggleTheme}
+      type="button"
+      onClick={cycleTheme}
       className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
       title={titleText}
+      aria-label={titleText}
     >
-      {theme === "light" ? (
-        <>
-          <Moon className="h-5 w-5" />
-          <span className="text-sm font-medium">{t("toolbar.switchToDark")}</span>
-        </>
-      ) : (
-        <>
-          <Sun className="h-5 w-5" />
-          <span className="text-sm font-medium">{t("toolbar.switchToLight")}</span>
-        </>
-      )}
+      {renderIcon(theme)}
+      <span className="text-sm font-medium">{nextActionLabel}</span>
     </button>
   );
 }

@@ -154,6 +154,11 @@
     "logout": "Cerrar Sesión",
     "switchToDark": "Cambiar a Modo Oscuro",
     "switchToLight": "Cambiar a Modo Claro",
+    "switchToSystem": "Cambiar a Modo del Sistema",
+    "themeDark": "Oscuro",
+    "themeLight": "Claro",
+    "themeSystem": "Sistema",
+    "themeTooltip": "Tema: {{current}} (clic para cambiar a {{next}})",
     "languages": "Idiomas",
     "userOptions": "Opciones de usuario"
   },

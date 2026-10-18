@@ -154,6 +154,11 @@
     "logout": "Sair",
     "switchToDark": "Alternar para Modo Escuro",
     "switchToLight": "Alternar para Modo Claro",
+    "switchToSystem": "Alternar para Modo do Sistema",
+    "themeDark": "Escuro",
+    "themeLight": "Claro",
+    "themeSystem": "Sistema",
+    "themeTooltip": "Tema: {{current}} (clique para alternar para {{next}})",
     "languages": "Idiomas",
     "userOptions": "Opções do usuário"
   },

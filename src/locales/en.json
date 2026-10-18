@@ -154,6 +154,11 @@
     "logout": "Logout",
     "switchToDark": "Switch to Dark Mode",
     "switchToLight": "Switch to Light Mode",
+    "switchToSystem": "Switch to System Mode",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeSystem": "System",
+    "themeTooltip": "Theme: {{current}} (click to switch to {{next}})",
     "languages": "Languages",
     "userOptions": "User options"
   },
