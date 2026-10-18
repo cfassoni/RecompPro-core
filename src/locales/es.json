@@ -159,6 +159,8 @@
     "themeLight": "Claro",
     "themeSystem": "Sistema",
     "themeTooltip": "Tema: {{current}} (clic para cambiar a {{next}})",
+    "currentTheme": "Selector de tema, tema actual: {{theme}}",
+    "themeOptions": "Opciones de tema",
     "languages": "Idiomas",
     "userOptions": "Opciones de usuario"
   },

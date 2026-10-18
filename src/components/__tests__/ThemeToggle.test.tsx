@@ -12,13 +12,11 @@ vi.mock("react-i18next", () => ({
         "toolbar.themeSystem": "System",
         "toolbar.themeLight": "Light",
         "toolbar.themeDark": "Dark",
-        "toolbar.switchToSystem": "Switch to System Mode",
-        "toolbar.switchToLight": "Switch to Light Mode",
-        "toolbar.switchToDark": "Switch to Dark Mode",
+        "toolbar.themeOptions": "Theme options",
       };
 
-      if (key === "toolbar.themeTooltip") {
-        return `Theme: ${options?.current} (click to switch to ${options?.next})`;
+      if (key === "toolbar.currentTheme") {
+        return `Theme selector, current theme: ${options?.theme}`;
       }
 
       return translations[key] || key;
@@ -46,7 +44,7 @@ describe("ThemeToggle", () => {
     });
   });
 
-  it("renders in system mode by default with Monitor icon and descriptive tooltip", () => {
+  it("renders trigger button with system theme by default", () => {
     render(
       <ThemeProvider>
         <ThemeToggle variant="icon" />
@@ -54,82 +52,109 @@ describe("ThemeToggle", () => {
     );
 
     const button = screen.getByRole("button", {
-      name: "Theme: System (click to switch to Light)",
+      name: "Theme selector, current theme: System",
     });
     expect(button).toBeInTheDocument();
-    expect(button).toHaveAttribute(
-      "title",
-      "Theme: System (click to switch to Light)"
-    );
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveAttribute("aria-haspopup", "menu");
   });
 
-  it("cycles through System -> Light -> Dark -> System on consecutive clicks", () => {
+  it("opens menu on click and lists options in order: System (top), Light, Dark", () => {
     render(
       <ThemeProvider>
         <ThemeToggle variant="icon" />
       </ThemeProvider>
     );
 
-    // Initial state: System -> Next: Light
-    let button = screen.getByRole("button", {
-      name: "Theme: System (click to switch to Light)",
+    const trigger = screen.getByRole("button", {
+      name: "Theme selector, current theme: System",
     });
-    expect(button).toBeInTheDocument();
 
-    // 1st click: Switch to Light -> Next: Dark
-    fireEvent.click(button);
-    button = screen.getByRole("button", {
-      name: "Theme: Light (click to switch to Dark)",
-    });
-    expect(button).toBeInTheDocument();
-    expect(localStorage.getItem("recomp_pro_theme")).toBe("light");
+    // Menu is closed initially
+    expect(screen.queryByRole("menu", { name: "Theme options" })).not.toBeInTheDocument();
 
-    // 2nd click: Switch to Dark -> Next: System
-    fireEvent.click(button);
-    button = screen.getByRole("button", {
-      name: "Theme: Dark (click to switch to System)",
-    });
-    expect(button).toBeInTheDocument();
-    expect(localStorage.getItem("recomp_pro_theme")).toBe("dark");
+    // Click trigger to open menu
+    fireEvent.click(trigger);
 
-    // 3rd click: Switch to System -> Next: Light
-    fireEvent.click(button);
-    button = screen.getByRole("button", {
-      name: "Theme: System (click to switch to Light)",
-    });
-    expect(button).toBeInTheDocument();
-    expect(localStorage.getItem("recomp_pro_theme")).toBe("system");
+    const menu = screen.getByRole("menu", { name: "Theme options" });
+    expect(menu).toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const menuItems = screen.getAllByRole("menuitem");
+    expect(menuItems).toHaveLength(3);
+    expect(menuItems[0]).toHaveTextContent("System");
+    expect(menuItems[1]).toHaveTextContent("Light");
+    expect(menuItems[2]).toHaveTextContent("Dark");
   });
 
-  it("renders variant='full' displaying current icon and next action label", () => {
+  it("selects an option, updates theme and closes the menu", () => {
+    render(
+      <ThemeProvider>
+        <ThemeToggle variant="icon" />
+      </ThemeProvider>
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "Theme selector, current theme: System",
+    });
+    fireEvent.click(trigger);
+
+    // Click Dark mode
+    const darkOption = screen.getByRole("menuitem", { name: /Dark/i });
+    fireEvent.click(darkOption);
+
+    // Menu should be closed
+    expect(screen.queryByRole("menu", { name: "Theme options" })).not.toBeInTheDocument();
+
+    // Trigger should reflect new theme
+    expect(
+      screen.getByRole("button", { name: "Theme selector, current theme: Dark" })
+    ).toBeInTheDocument();
+    expect(localStorage.getItem("recomp_pro_theme")).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
+  it("closes on Escape key and returns focus to trigger button", () => {
+    render(
+      <ThemeProvider>
+        <ThemeToggle variant="icon" />
+      </ThemeProvider>
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "Theme selector, current theme: System",
+    });
+    fireEvent.click(trigger);
+
+    const menu = screen.getByRole("menu", { name: "Theme options" });
+    expect(menu).toBeInTheDocument();
+
+    // Press Escape
+    fireEvent.keyDown(menu, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Theme options" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("renders variant='full' displaying current icon, label, and chevron", () => {
     render(
       <ThemeProvider>
         <ThemeToggle variant="full" />
       </ThemeProvider>
     );
 
-    // Initial state: in System mode, button displays next action "Switch to Light Mode"
-    let button = screen.getByRole("button", {
-      name: "Theme: System (click to switch to Light)",
+    const trigger = screen.getByRole("button", {
+      name: "Theme selector, current theme: System",
     });
-    expect(button).toBeInTheDocument();
-    expect(screen.getByText("Switch to Light Mode")).toBeInTheDocument();
+    expect(trigger).toBeInTheDocument();
+    expect(screen.getByText("System")).toBeInTheDocument();
 
-    // Click to cycle to Light mode -> next action is "Switch to Dark Mode"
-    fireEvent.click(button);
-    button = screen.getByRole("button", {
-      name: "Theme: Light (click to switch to Dark)",
-    });
-    expect(button).toBeInTheDocument();
-    expect(screen.getByText("Switch to Dark Mode")).toBeInTheDocument();
+    // Click and select Light
+    fireEvent.click(trigger);
+    const lightOption = screen.getByRole("menuitem", { name: /Light/i });
+    fireEvent.click(lightOption);
 
-    // Click to cycle to Dark mode -> next action is "Switch to System Mode"
-    fireEvent.click(button);
-    button = screen.getByRole("button", {
-      name: "Theme: Dark (click to switch to System)",
-    });
-    expect(button).toBeInTheDocument();
-    expect(screen.getByText("Switch to System Mode")).toBeInTheDocument();
+    expect(screen.getByText("Light")).toBeInTheDocument();
+    expect(localStorage.getItem("recomp_pro_theme")).toBe("light");
   });
 
   it("works safely when rendered outside ThemeProvider with fallback defaults", () => {
