@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import { db } from "@/db/client";
 import { workouts } from "@/db/schema";
-import { eq, desc, asc, sql } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import {
   computeHistoricalProgressions,
   inferMovementCategory,
@@ -13,8 +13,15 @@ import {
 export const GET = withAuth(async (req, { user }) => {
   try {
     const url = new URL(req.url);
-    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20", 10)));
-    const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10));
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
+    const pageSizeParam = url.searchParams.get("pageSize") || url.searchParams.get("limit") || "20";
+    const isAll = pageSizeParam === "all" || pageSizeParam === "-1";
+    const limit = isAll ? 10000 : Math.min(1000, Math.max(1, parseInt(pageSizeParam, 10)));
+    const offset = isAll
+      ? 0
+      : url.searchParams.has("offset")
+      ? Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10))
+      : (page - 1) * limit;
 
     const totalCountRes = await db
       .select({ count: sql<number>`count(*)` })
@@ -58,20 +65,8 @@ export const GET = withAuth(async (req, { user }) => {
       }))
     );
 
-    const list = await db.query.workouts.findMany({
-      where: eq(workouts.userId, user.id),
-      orderBy: [desc(workouts.startTime)],
-      limit,
-      offset,
-      with: {
-        exercises: {
-          with: {
-            sets: true,
-            template: true,
-          },
-        },
-      },
-    });
+    const reversed = [...allUserWorkouts].reverse();
+    const list = isAll ? reversed : reversed.slice(offset, offset + limit);
 
     const sanitized = list.map((w) => {
       const prog = workoutMap.get(w.id);
@@ -150,6 +145,9 @@ export const GET = withAuth(async (req, { user }) => {
       total,
       limit,
       offset,
+      page,
+      pageSize: limit,
+      hasMore: offset + list.length < total,
       workouts: sanitized,
     });
   } catch (err: unknown) {

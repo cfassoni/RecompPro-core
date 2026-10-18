@@ -18,12 +18,18 @@ type PeriodOption = "all" | "1m" | "3m" | "6m" | "1y";
 
 const PERIODS: PeriodOption[] = ["1m", "3m", "6m", "1y", "all"];
 
-export default function LoadProgressionWidget() {
+interface LoadProgressionWidgetProps {
+  defaultCollapsed?: boolean;
+}
+
+export default function LoadProgressionWidget({
+  defaultCollapsed = false,
+}: LoadProgressionWidgetProps = {}) {
   const { t } = useTranslation();
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1m");
   const [data, setData] = useState<WorkoutProgressionsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   useEffect(() => {
     let isMounted = true;

@@ -21,15 +21,17 @@ interface MuscleReadinessWidgetProps {
   readiness: MuscleReadinessResponse | null;
   isLoading?: boolean;
   compact?: boolean;
+  defaultCollapsed?: boolean;
 }
 
 export default function MuscleReadinessWidget({
   readiness,
   isLoading = false,
   compact = false,
+  defaultCollapsed = false,
 }: MuscleReadinessWidgetProps) {
   const { t } = useTranslation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   const getStatusBadge = (status: "ready" | "recovering" | "exhausted") => {
     switch (status) {

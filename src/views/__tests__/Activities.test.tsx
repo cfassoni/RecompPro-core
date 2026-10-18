@@ -9,6 +9,12 @@ vi.mock("@/lib/api", () => {
     api: {
       getWorkouts: vi.fn(),
       getMuscleReadiness: vi.fn(),
+      getWorkoutProgressions: vi.fn().mockResolvedValue({
+        period: "1m",
+        totalPrsInPeriod: 0,
+        exercisesProgressedCount: 0,
+        items: [],
+      }),
       syncHevy: vi.fn(),
     },
   };
@@ -76,7 +82,7 @@ describe("Activities View Component", () => {
     vi.clearAllMocks();
   });
 
-  it("renders header, summary KPI cards, and workout feed", async () => {
+  it("renders header, summary KPI cards, and expands workout feed", async () => {
     vi.mocked(api.getWorkouts).mockResolvedValue(mockWorkoutsData);
     vi.mocked(api.getMuscleReadiness).mockResolvedValue(mockReadinessData);
 
@@ -84,15 +90,29 @@ describe("Activities View Component", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
-      expect(screen.getByText("Chest & Triceps Power")).toBeInTheDocument();
+      expect(screen.getByText("Training Overview")).toBeInTheDocument();
       expect(screen.getAllByText(/5,?200/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText(/365/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/\+45 kcal/i)).toBeInTheDocument();
       expect(screen.getAllByText(/8\.5/i).length).toBeGreaterThanOrEqual(1);
     });
+
+    // Workouts history is collapsed by default
+    expect(screen.queryByText("Chest & Triceps Power")).not.toBeInTheDocument();
+
+    // Click expand button on Workouts History card (the second expand button or by title/aria-label)
+    const expandButtons = screen.getAllByRole("button", { name: /Expandir|Expand/i });
+    expect(expandButtons.length).toBeGreaterThanOrEqual(1);
+
+    // Expand the history widget (the last expand button)
+    fireEvent.click(expandButtons[expandButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Chest & Triceps Power")).toBeInTheDocument();
+    });
   });
 
-  it("renders empty state when no workouts exist", async () => {
+  it("renders empty state when no workouts exist and history is expanded", async () => {
     vi.mocked(api.getWorkouts).mockResolvedValue({
       workouts: [],
       total: 0,
@@ -103,6 +123,14 @@ describe("Activities View Component", () => {
     vi.mocked(api.getMuscleReadiness).mockResolvedValue(mockReadinessData);
 
     render(<Activities />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
+    });
+
+    // Expand history
+    const expandButtons = screen.getAllByRole("button", { name: /Expandir|Expand/i });
+    fireEvent.click(expandButtons[expandButtons.length - 1]);
 
     await waitFor(() => {
       expect(screen.getByText(/No Workouts Found/i)).toBeInTheDocument();
@@ -133,5 +161,95 @@ describe("Activities View Component", () => {
       expect(api.syncHevy).toHaveBeenCalledWith(1, 20);
       expect(screen.getByText(/Workouts synchronized: 2 new sessions out of 5/i)).toBeInTheDocument();
     });
+  });
+
+  it("filters history workouts by search query", async () => {
+    vi.mocked(api.getWorkouts).mockResolvedValue({
+      workouts: [
+        {
+          id: "w-1",
+          title: "Chest & Triceps Power",
+          description: "Heavy bench day",
+          startTime: "2026-10-12T10:00:00Z",
+          endTime: "2026-10-12T11:00:00Z",
+          durationSeconds: 3600,
+          totalVolumeKg: 5200,
+          sessionCaloriesBurned: 320,
+          epocCaloriesBurned: 45,
+          totalCaloriesBurned: 365,
+          avgRpe: 8.5,
+          source: "hevy",
+          exerciseCount: 4,
+          setCount: 16,
+          hasProgression: true,
+          progressionCount: 1,
+          exercises: [
+            {
+              id: "e-1",
+              title: "Bench Press",
+              index: 0,
+              primaryMuscleGroup: "chest",
+              equipment: "barbell",
+              setsCount: 4,
+              sets: [],
+            },
+          ],
+        },
+        {
+          id: "w-2",
+          title: "Legs & Abs Routine",
+          description: "Squat day",
+          startTime: "2026-10-14T10:00:00Z",
+          endTime: "2026-10-14T11:00:00Z",
+          durationSeconds: 3600,
+          totalVolumeKg: 6000,
+          sessionCaloriesBurned: 400,
+          epocCaloriesBurned: 50,
+          totalCaloriesBurned: 450,
+          avgRpe: 9.0,
+          source: "hevy",
+          exerciseCount: 4,
+          setCount: 16,
+          hasProgression: false,
+          progressionCount: 0,
+          exercises: [],
+        },
+      ],
+      total: 2,
+      page: 1,
+      pageSize: 15,
+      hasMore: false,
+    });
+    vi.mocked(api.getMuscleReadiness).mockResolvedValue(mockReadinessData);
+
+    render(<Activities />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Workouts & Activities")).toBeInTheDocument();
+    });
+
+    // Expand history
+    const expandButtons = screen.getAllByRole("button", { name: /Expandir|Expand/i });
+    fireEvent.click(expandButtons[expandButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Chest & Triceps Power")).toBeInTheDocument();
+      expect(screen.getByText("Legs & Abs Routine")).toBeInTheDocument();
+    });
+
+    // Search for "Bench"
+    const searchInput = screen.getByPlaceholderText(/Search by date or workout|Buscar por data/i);
+    fireEvent.change(searchInput, { target: { value: "Bench" } });
+
+    expect(screen.getByText("Chest & Triceps Power")).toBeInTheDocument();
+    expect(screen.queryByText("Legs & Abs Routine")).not.toBeInTheDocument();
+
+    // Toggle PR filter
+    const prFilterBtn = screen.getByRole("button", { name: /PRs only|Apenas PRs/i });
+    fireEvent.change(searchInput, { target: { value: "" } });
+    fireEvent.click(prFilterBtn);
+
+    expect(screen.getByText("Chest & Triceps Power")).toBeInTheDocument();
+    expect(screen.queryByText("Legs & Abs Routine")).not.toBeInTheDocument();
   });
 });

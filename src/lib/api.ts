@@ -190,9 +190,18 @@ export interface WorkoutItem {
   source: string;
   exerciseCount: number;
   setCount: number;
-  primaryMuscleGroups: string[];
+  primaryMuscleGroups?: string[];
   hasProgression?: boolean;
   progressionCount?: number;
+  exercises?: {
+    id: number | string;
+    title: string;
+    index?: number;
+    primaryMuscleGroup?: string | null;
+    equipment?: string | null;
+    setsCount?: number;
+    [key: string]: unknown;
+  }[];
 }
 
 export interface WorkoutDetail {
@@ -964,7 +973,7 @@ export const api = {
 
   async getWorkouts(
     page = 1,
-    pageSize = 20
+    pageSize: number | "all" = 20
   ): Promise<{
     workouts: WorkoutItem[];
     total: number;

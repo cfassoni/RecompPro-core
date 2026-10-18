@@ -133,7 +133,7 @@ export default function WorkoutStatsWidget({
             onClick={() => setActiveTab("duration")}
             className={`pb-2.5 transition-all cursor-pointer border-b-2 -mb-[1px] ${
               activeTab === "duration"
-                ? "border-primary text-primary font-bold"
+                ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -144,7 +144,7 @@ export default function WorkoutStatsWidget({
             onClick={() => setActiveTab("reps")}
             className={`pb-2.5 transition-all cursor-pointer border-b-2 -mb-[1px] ${
               activeTab === "reps"
-                ? "border-primary text-primary font-bold"
+                ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -155,7 +155,7 @@ export default function WorkoutStatsWidget({
             onClick={() => setActiveTab("volume")}
             className={`pb-2.5 transition-all cursor-pointer border-b-2 -mb-[1px] ${
               activeTab === "volume"
-                ? "border-primary text-primary font-bold"
+                ? "border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -192,18 +192,18 @@ export default function WorkoutStatsWidget({
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
-                stroke="hsl(var(--border))"
-                opacity={0.4}
+                stroke="var(--color-border)"
+                opacity={0.6}
               />
               <XAxis
                 dataKey="label"
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--color-muted-foreground)"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--color-muted-foreground)"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -214,29 +214,30 @@ export default function WorkoutStatsWidget({
                 }}
               />
               <Tooltip
+                cursor={{ fill: "var(--color-muted)", opacity: 0.4 }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload as WorkoutChartPoint;
                     return (
-                      <div className="bg-popover border border-border rounded-xl p-3 shadow-lg text-xs space-y-1.5 min-w-[140px]">
+                      <div className="bg-card border border-border rounded-xl p-3 shadow-lg text-xs space-y-1.5 min-w-[140px]">
                         <div className="font-semibold text-foreground border-b border-border pb-1">
                           {data.label}
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground gap-3">
                           <span>{t("dashboard.workoutStats.durationTab")}:</span>
-                          <span className="font-data-mono font-medium text-foreground">
+                          <span className={`font-data-mono font-medium ${activeTab === "duration" ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-foreground"}`}>
                             {formatDurationText(data.durationSeconds)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground gap-3">
                           <span>{t("dashboard.workoutStats.repsTab")}:</span>
-                          <span className="font-data-mono font-medium text-foreground">
+                          <span className={`font-data-mono font-medium ${activeTab === "reps" ? "text-amber-600 dark:text-amber-400 font-bold" : "text-foreground"}`}>
                             {data.reps.toLocaleString()}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground gap-3">
                           <span>{t("dashboard.workoutStats.volumeTab")}:</span>
-                          <span className="font-data-mono font-medium text-foreground">
+                          <span className={`font-data-mono font-medium ${activeTab === "volume" ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-foreground"}`}>
                             {data.volumeKg.toLocaleString()} kg
                           </span>
                         </div>
@@ -260,7 +261,13 @@ export default function WorkoutStatsWidget({
                     ? "reps"
                     : "volumeKg"
                 }
-                fill="hsl(var(--primary))"
+                fill={
+                  activeTab === "duration"
+                    ? "#6366f1"
+                    : activeTab === "reps"
+                    ? "#f59e0b"
+                    : "#10b981"
+                }
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
