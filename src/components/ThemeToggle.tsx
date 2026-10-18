@@ -20,7 +20,7 @@ const THEME_OPTIONS: {
 ];
 
 export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
-  const { theme, setTheme, mounted } = useTheme();
+  const { theme, resolvedTheme, setTheme, mounted } = useTheme();
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,14 +95,11 @@ export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
 
   const currentLabel = getThemeLabel(theme);
 
-  const renderActiveIcon = (pref: ThemePreference) => {
-    if (pref === "light") {
-      return <Sun className="h-5 w-5" aria-hidden="true" />;
-    }
-    if (pref === "dark") {
+  const renderTriggerIcon = () => {
+    if (resolvedTheme === "dark") {
       return <Moon className="h-5 w-5" aria-hidden="true" />;
     }
-    return <Monitor className="h-5 w-5" aria-hidden="true" />;
+    return <Sun className="h-5 w-5" aria-hidden="true" />;
   };
 
   if (!mounted) {
@@ -120,7 +117,7 @@ export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
           title={placeholderTitle}
           className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
         >
-          <Monitor className="h-5 w-5" aria-hidden="true" />
+          <Sun className="h-5 w-5" aria-hidden="true" />
         </button>
       );
     }
@@ -133,7 +130,7 @@ export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
         className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
       >
         <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5" aria-hidden="true" />
+          <Sun className="h-5 w-5" aria-hidden="true" />
           <span className="text-sm font-medium">{defaultLabel}</span>
         </div>
         <ChevronDown className="h-4 w-4 opacity-70" />
@@ -160,7 +157,7 @@ export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
           title={buttonTitle}
           className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
         >
-          {renderActiveIcon(theme)}
+          {renderTriggerIcon()}
         </button>
       ) : (
         <button
@@ -174,7 +171,7 @@ export default function ThemeToggle({ variant = "icon" }: ThemeToggleProps) {
           className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
         >
           <div className="flex items-center gap-2">
-            {renderActiveIcon(theme)}
+            {renderTriggerIcon()}
             <span className="text-sm font-medium">{currentLabel}</span>
           </div>
           <ChevronDown
