@@ -280,7 +280,7 @@ describe("Unified Muscle Recovery & Double Progression Engine (recovery.ts)", ()
       expect(ex2?.setsProgression[1].deltaWeightKg).toBe(5);
 
       // Period summary
-      const periodItems = getPeriodProgressions(30);
+      const periodItems = getPeriodProgressions(30, new Date("2026-10-13T12:00:00Z"));
       expect(periodItems.length).toBe(1);
       expect(periodItems[0].title).toBe("Supino Reto (Barra)");
       expect(periodItems[0].startWeightKg).toBe(80);

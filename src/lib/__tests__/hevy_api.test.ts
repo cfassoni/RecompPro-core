@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 import { NextRequest } from "next/server";
 import { ensureTablesExist } from "@/db/initDb";
 import { POST as connectHevy } from "@/app/api/integrations/hevy/connect/route";
@@ -165,13 +165,18 @@ describe("Hevy Integration & Workouts API Routes", () => {
         .returning({ id: users.id });
       testUserId = inserted[0].id;
     }
-
-    authToken = await createAccessToken({ sub: "hevy_test_user@example.com", email: "hevy_test_user@example.com" });
   });
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T12:00:00Z"));
+    authToken = await createAccessToken({ sub: "hevy_test_user@example.com", email: "hevy_test_user@example.com" });
     await db.delete(userIntegrations).where(eq(userIntegrations.userId, testUserId));
     await db.delete(workouts).where(eq(workouts.userId, testUserId));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should connect Hevy integration with valid API key", async () => {

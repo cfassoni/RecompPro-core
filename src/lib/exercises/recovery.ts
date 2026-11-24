@@ -1313,7 +1313,8 @@ export function computeHistoricalProgressions(
 ): {
   workoutMap: Map<string, WorkoutProgressionSummary>;
   getPeriodProgressions: (
-    periodDays?: number | null
+    periodDays?: number | null,
+    referenceDate?: Date
   ) => PeriodExerciseProgressionItem[];
 } {
   // Sort oldest to newest
@@ -1583,10 +1584,12 @@ export function computeHistoricalProgressions(
   }
 
   const getPeriodProgressions = (
-    periodDays?: number | null
+    periodDays?: number | null,
+    referenceDate = new Date()
   ): PeriodExerciseProgressionItem[] => {
-    const now = new Date();
-    const cutoffMs = periodDays ? now.getTime() - periodDays * 86400 * 1000 : 0;
+    const cutoffMs = periodDays
+      ? referenceDate.getTime() - periodDays * 86400 * 1000
+      : 0;
 
     const items: PeriodExerciseProgressionItem[] = [];
 
