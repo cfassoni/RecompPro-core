@@ -49,9 +49,10 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 | **Creating local feature branch (`fix/*`, `feat/*`)**       |   **YES**       | Always branch off latest `preview`.                                                                                                                                                               |
 | **Committing locally on feature branch**                    |   **YES**       | Use Conventional Commits (`feat:`, `fix:`, `chore:`).                                                                                                                                             |
 | **Merging feature branch locally into `preview` or `main`** |  **NEVER**      | **Requires explicit written user approval after user testing.**                                                                                                                                   |
-| **Pushing & Opening Feature PR (`git push` + `gh pr create`)** | **ON PR APPROVAL** | **Wait for user testing approval (e.g., "pode abrir PR"); once approved, push the branch and open the PR in one step.**                                                                           |
-| **Release Bump PR, Release PR & Tag (`vX.Y.Z`)**            | **ON RELEASE START**  | **Once the user requests a release and confirms version `vX.Y.Z`, execute the bump PR (`➔ preview`), Release PR (`➔ main`), and `gh release create vX.Y.Z` automatically after each human merge.** |
-| **Merging Pull Requests (`gh pr merge`)**                   |  **NEVER**      | **Human-only. Merges are performed manually by the user — enforced as a hard rule, _not_ as a permission limit (the App does hold `pull_requests: write`, which it needs in order to open PRs).** |
+| **Pushing & Opening Feature PR (`git push` + `gh pr create`)** | **ON PR APPROVAL** | **Wait for user testing approval (e.g., "pode abrir PR"); once approved, push the branch and open the PR targeting `preview` in one step.**                                                       |
+| **Merging PRs into `preview` (`gh pr merge`)**              | **ON PR APPROVAL** | **Agent-autonomous merge via GitHub App is permitted ONLY for PRs targeting `preview` after user testing approval.**                                                                             |
+| **Release Bump PR, Release PR & Tag (`vX.Y.Z`)**            | **ON RELEASE START**  | **Once the user requests a release and confirms version `vX.Y.Z`, execute the bump PR (`➔ preview`, agent-mergeable) and Release PR (`➔ main`), then wait for human merge of `main` before `gh release create vX.Y.Z`.** |
+| **Merging Release PRs into `main` (`gh pr merge`)**         |  **NEVER**      | **Human-only. Merges into `main` are strictly performed manually by the user — enforced as a hard rule, _not_ as a permission limit (the App does hold `pull_requests: write`, which it needs in order to open and merge `preview` PRs).** |
 
 ---
 
@@ -122,8 +123,8 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 ### DON'Ts
 
 - **DON'T EVER** push to `origin` without explicit user permission.
-- **DON'T EVER** open or merge a Pull Request without explicit user permission.
-- **DON'T EVER** attempt automated PR merges via GitHub App — merges are strictly human. The App _does_ hold `pull_requests: write` (required to open PRs), so this is a hard rule with no technical backstop; honour it unconditionally.
+- **DON'T EVER** open a Pull Request without explicit user permission.
+- **DON'T EVER** attempt automated PR merges into `main` via GitHub App — merges into `main` are strictly human. Agent-autonomous `gh pr merge` is permitted **only** for PRs targeting `preview` after user testing approval. The App _does_ hold `pull_requests: write`, so the `main`-only restriction is a hard rule with no technical backstop; honour it unconditionally.
 - **DON'T EVER** rely on personal SSH keys or global host credentials for remote Git/GitHub operations.
 - **DON'T EVER** merge a feature branch into local `preview` or `main` before the user has finished testing on the feature branch.
 - **DON'T EVER** target `main` directly for feature PRs (all feature PRs must target `preview`).

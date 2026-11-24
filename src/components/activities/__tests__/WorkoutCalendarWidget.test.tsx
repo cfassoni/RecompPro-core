@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import WorkoutCalendarWidget from "../WorkoutCalendarWidget";
 import type { WorkoutCalendarItem } from "@/lib/api";
@@ -28,6 +28,15 @@ const mockCalendarDays: Record<string, WorkoutCalendarItem[]> = {
 };
 
 describe("WorkoutCalendarWidget Component", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-13T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders loading skeleton when isLoading is true", () => {
     const { container } = render(
       <WorkoutCalendarWidget calendarDays={{}} isLoading={true} />
