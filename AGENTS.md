@@ -33,6 +33,12 @@ feat/* | fix/* | docs/* (Isolated feature branches)
     2. As soon as the user confirms the bump PR is merged into `preview`, immediately pull `origin/preview` and open the Release PR (`preview` ➔ `main`). Output the PR URL and wait for the user's manual merge.
     3. As soon as the user confirms the Release PR is merged into `main`, immediately create the GitHub Release and tag (`gh release create vX.Y.Z --target main --title "vX.Y.Z"`).
 
+- **Provisional Pre-Release Bumps (`-rc.N`) on `preview`**:
+  - To publish a testable image from `preview` before a final release, use the version `vX.Y.Z-rc.N` (dot before the number, `N` starting at `1` for each target version; e.g. `v0.8.2-rc.1`, `v0.8.2-rc.2`, then final `v0.8.2`).
+  - Bump flow: `chore/bump-vX.Y.Z-rc.N` off `preview` ➔ `npm run version:bump X.Y.Z-rc.N` ➔ verify ➔ PR targeting `preview` (agent-mergeable) ➔ after merge, `gh release create vX.Y.Z-rc.N --target preview --prerelease --title "vX.Y.Z-rc.N"` (title strictly the version code).
+  - Publishing the pre-release GitHub Release triggers `release.yml`, which pushes the multi-arch image to GHCR with tags `X.Y.Z-rc.N` and `sha-*`. Pre-releases must **NEVER** move the `latest` tag (guarded by `github.event.release.prerelease`) and never require a PR to `main`.
+  - The final release still follows the Streamlined Release Cutover Workflow (`preview` ➔ `main`, human merge, `gh release create vX.Y.Z --target main`).
+
 - **Zero-Polling on Remote CI/CD & GitHub Procedures (Token Conservation)**:
   - Do NOT poll or loop checking status of GitHub Actions workflows, CI runs, PR checks, or release image builds.
   - Once a remote action (`gh pr create`, `gh release create`) is executed, output the relevant GitHub URL to the user and immediately end the turn. The user will monitor remote status asynchronously and return to the agent if any follow-up is needed.
