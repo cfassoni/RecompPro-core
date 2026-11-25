@@ -55,10 +55,10 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 | **Creating local feature branch (`fix/*`, `feat/*`)**       |   **YES**       | Always branch off latest `preview`.                                                                                                                                                               |
 | **Committing locally on feature branch**                    |   **YES**       | Use Conventional Commits (`feat:`, `fix:`, `chore:`).                                                                                                                                             |
 | **Merging feature branch locally into `preview` or `main`** |  **NEVER**      | **Requires explicit written user approval after user testing.**                                                                                                                                   |
-| **Pushing & Opening Feature PR (`git push` + `gh pr create`)** | **ON PR APPROVAL** | **Wait for user testing approval (e.g., "pode abrir PR"); once approved, push the branch and open the PR targeting `preview` in one step.**                                                       |
-| **Merging PRs into `preview` (`gh pr merge`)**              | **ON PR APPROVAL** | **Agent-autonomous merge via GitHub App is permitted ONLY for PRs targeting `preview` after user testing approval.**                                                                             |
-| **Release Bump PR, Release PR & Tag (`vX.Y.Z`)**            | **ON RELEASE START**  | **Once the user requests a release and confirms version `vX.Y.Z`, execute the bump PR (`➔ preview`, agent-mergeable) and Release PR (`➔ main`), then wait for human merge of `main` before `gh release create vX.Y.Z`.** |
-| **Merging Release PRs into `main` (`gh pr merge`)**         |  **NEVER**      | **Human-only. Merges into `main` are strictly performed manually by the user — enforced as a hard rule, _not_ as a permission limit (the App does hold `pull_requests: write`, which it needs in order to open and merge `preview` PRs).** |
+| **Pushing feature branch & Opening PR to `preview`**        |    **YES**            | Allowed autonomously on isolated branches (`feat/*`, `fix/*`, `docs/*`) after passing local verification; always target `preview`.                                                                |
+| **Merging PRs into `preview` (`gh pr merge`)**              | **ON APPROVAL**       | Permitted via `github-app` MCP (`allow_merge_branches: ["preview"]`) after user confirmation.                                                                                                     |
+| **Release Bump PR, Release PR & Tag (`vX.Y.Z`)**            | **ON RELEASE START**  | Once the user requests a release and confirms `vX.Y.Z`, execute the bump PR (`➔ preview`) and Release PR (`➔ main`), then wait for human merge into `main` before creating the GitHub Release.    |
+| **Pushing or Merging into `main`**                          |   **NEVER**           | **Human-only.** Strictly performed manually by the user — enforced both as a project rule and by the `github-app` profile policy.                                                                 |
 
 ---
 
@@ -91,12 +91,9 @@ feat/* | fix/* | docs/* (Isolated feature branches)
   - All Node.js server logging and Docker container shell commands/init containers must format timestamps with `[YYYY-MM-DD HH:MM:SS]` for observability.
   - Always specify explicit `name` properties for Docker named volumes (e.g., `volumes: recomp_pro_data: name: recomp_pro_data`) to prevent Docker Compose from prefixing project names.
 
-- **GitHub App Authentication & Ephemeral Credentials**:
-  - All remote Git operations (`fetch`, `push`, `pull`) and GitHub CLI (`gh`) commands must authenticate exclusively using ephemeral installation tokens derived from GitHub App credentials in `.env` (`GITHUB_APP_ID`, `GITHUB_INSTALLATION_ID`, `GITHUB_PRIVATE_KEY`).
-  - Use the harness-independent `github-app` CLI. After cloning, import the project's ignored `.env` settings once with `github-app profile import --name <profile> --env .env --git-name '<app>[bot]' --git-email '<app-id>+<app>[bot]@users.noreply.github.com'`, then run `github-app init --profile <profile>`. This registers the per-project App profile, credential helper, and local commit identity.
-  - For a new private clone, use `github-app clone --profile <profile> <https-repo-url> [directory]`; clone cannot inherit destination-repository Git configuration because `.git/config` does not exist yet. Plain `git fetch` / `git push` / `git pull` then use the App helper.
-  - `gh` does not read Git credential helpers; wrap it with `github-app run gh <args...>` (or `github-app run --profile <profile> gh <args...>` outside an initialized repo).
-  - Never rely on personal host SSH keys, global Git credential helpers, or interactive login prompts.
+- **GitHub App Authentication**:
+  - Use the `github-app` plugin / MCP server (profile `recomp-pro-core`) and its `github-app` skill for all authenticated remote Git and GitHub operations.
+  - Fall back to the `github-app` CLI only in environments without MCP support; never rely on personal SSH keys or global host credentials.
 
 - **Modal & Drawer Dismissal Ergonomics**:
   - All dialogs, sheets, modals, and slide-over drawers must support dismissal via backdrop/overlay click and the `Escape` keyboard key (with cleaned-up event listeners in `useEffect`), in addition to explicit close buttons.
@@ -124,13 +121,11 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 - **DO** ensure Docker volumes use explicit names (e.g., `recomp_pro_data`) and legacy volumes use `external: true` for Portainer compatibility.
 - **DO** write comprehensive unit/integration tests for every newly added feature or bug fix.
 - **DO** consult [docs/UI_AND_I18N_GUIDELINES.md](file:///home/cfassoni/Projects/RecompPro-core/docs/UI_AND_I18N_GUIDELINES.md) and ai-memory for UI consistency, locale-aware formatting, and integration standards.
-- **DO** authenticate remote Git and GitHub CLI operations with ephemeral GitHub App installation tokens: `github-app clone` for private clones, the configured helper for `fetch`/`push`/`pull`, and `github-app run gh ...` for GitHub CLI.
+- **DO** use the `github-app` plugin / MCP server (profile `recomp-pro-core`) and its skill for all remote Git and GitHub operations.
 
 ### DON'Ts
 
-- **DON'T EVER** push to `origin` without explicit user permission.
-- **DON'T EVER** open a Pull Request without explicit user permission.
-- **DON'T EVER** attempt automated PR merges into `main` via GitHub App — merges into `main` are strictly human. Agent-autonomous `gh pr merge` is permitted **only** for PRs targeting `preview` after user testing approval. The App _does_ hold `pull_requests: write`, so the `main`-only restriction is a hard rule with no technical backstop; honour it unconditionally.
+- **DON'T EVER** push directly to `main` or merge PRs into `main` — promotions to `main` are strictly human-only (enforced by project rule and `github-app` policy).
 - **DON'T EVER** rely on personal SSH keys or global host credentials for remote Git/GitHub operations.
 - **DON'T EVER** merge a feature branch into local `preview` or `main` before the user has finished testing on the feature branch.
 - **DON'T EVER** target `main` directly for feature PRs (all feature PRs must target `preview`).
