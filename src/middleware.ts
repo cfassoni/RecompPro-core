@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MCP_CORS_HEADERS } from "@/lib/mcp/cors";
 
 export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const isMcpSurface =
+    pathname === "/mcp" ||
+    pathname.startsWith("/.well-known/") ||
+    pathname.startsWith("/oauth/");
+
+  if (isMcpSurface) {
+    if (req.method === "OPTIONS") {
+      return new NextResponse(null, {
+        status: 204,
+        headers: MCP_CORS_HEADERS,
+      });
+    }
+
+    const res = NextResponse.next();
+    for (const [key, value] of Object.entries(MCP_CORS_HEADERS)) {
+      res.headers.set(key, value);
+    }
+    return res;
+  }
+
   const origin = req.headers.get("origin") || "*";
 
   // Handle preflight OPTIONS request
@@ -27,5 +49,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/uploads/:path*"],
+  matcher: ["/api/:path*", "/uploads/:path*", "/mcp", "/.well-known/:path*", "/oauth/:path*"],
 };

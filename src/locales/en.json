@@ -812,5 +812,42 @@
       "totalMilestones": "{{count}} total milestones achieved",
       "periodRange": "Period Range"
     }
+  },
+  "oauthConsent": {
+    "title": "Authorize AI Assistant Access",
+    "subtitle": "An external MCP client is requesting access to your Recomp Pro account.",
+    "loading": "Validating authorization request...",
+    "invalidRequest": "This OAuth authorization request is invalid or incomplete.",
+    "decisionError": "Could not complete authorization. Please try again.",
+    "disabledTitle": "MCP Server Disabled",
+    "disabledDesc": "The Recomp Pro MCP server is currently disabled by server configuration.",
+    "badgeCimd": "Verified Metadata (CIMD)",
+    "badgeDcr": "Dynamic Client (DCR)",
+    "signedInAs": "Signed in as",
+    "switchAccount": "Switch Account",
+    "permissionsHeading": "Requested Permissions",
+    "modeRead": "Read",
+    "modeWrite": "Write",
+    "readOnlyToggleLabel": "Grant Read-Only access only",
+    "readOnlyToggleDesc": "Removes all write permissions so this assistant can inspect data without modifying records or triggering syncs.",
+    "securityExclusionNote": "Account deletion, password/email security changes, integration credentials, and token management are never accessible via MCP.",
+    "approve": "Authorize",
+    "deny": "Deny",
+    "scopes": {
+      "recomp_read": "Read all Recomp Pro data (profile, biometrics, workouts, integrations, shared links)",
+      "recomp_write": "Modify Recomp Pro data (profile targets, stars, record deletion, sync triggers, shared links)",
+      "profile_read": "Read your user profile and body composition targets",
+      "profile_write": "Update your profile details and target weight",
+      "biometrics_read": "Read your body composition scans and summaries",
+      "biometrics_write": "Star or delete biometric scan records",
+      "workouts_read": "Read your workouts, progression PRs, and muscle readiness",
+      "workouts_write": "Log or update workout sessions",
+      "integrations_read": "View connected integration status (Fitdays, Hevy)",
+      "integrations_write": "Trigger synchronization with connected Fitdays/Hevy accounts",
+      "shared_links_read": "View your shared report links and access summaries",
+      "shared_links_write": "Create, update, and revoke shared report links",
+      "nutrition_read": "Read nutrition logs and energy balance data",
+      "nutrition_write": "Log and update nutrition entries"
+    }
   }
 }

@@ -14,6 +14,7 @@ interface AuthContextType {
   sharedLinksCount: number;
   setSharedLinksCount: React.Dispatch<React.SetStateAction<number>>;
   enableWipPages: boolean;
+  enableMcpServer: boolean;
   checkAuth: () => Promise<void>;
   logout: () => void;
 }
@@ -24,10 +25,12 @@ export function AuthProvider({
   children,
   initialLang,
   enableWipPages = false,
+  enableMcpServer = true,
 }: {
   children: React.ReactNode;
   initialLang?: "en" | "pt" | "es";
   enableWipPages?: boolean;
+  enableMcpServer?: boolean;
 }) {
   const { i18n } = useTranslation();
   const router = useRouter();
@@ -126,6 +129,7 @@ export function AuthProvider({
         sharedLinksCount,
         setSharedLinksCount,
         enableWipPages,
+        enableMcpServer,
         checkAuth,
         logout,
       }}

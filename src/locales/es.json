@@ -812,5 +812,42 @@
       "totalMilestones": "{{count}} logros totales alcanzados",
       "periodRange": "Rango en el Período"
     }
+  },
+  "oauthConsent": {
+    "title": "Autorizar Acceso de Asistente IA",
+    "subtitle": "Un cliente MCP externo está solicitando acceso a tu cuenta de Recomp Pro.",
+    "loading": "Validando solicitud de autorización...",
+    "invalidRequest": "Esta solicitud de autorización OAuth es inválida o está incompleta.",
+    "decisionError": "No se pudo completar la autorización. Inténtalo de nuevo.",
+    "disabledTitle": "Servidor MCP Deshabilitado",
+    "disabledDesc": "El servidor MCP de Recomp Pro está deshabilitado por configuración del servidor.",
+    "badgeCimd": "Metadatos Verificados (CIMD)",
+    "badgeDcr": "Cliente Dinámico (DCR)",
+    "signedInAs": "Conectado como",
+    "switchAccount": "Cambiar Cuenta",
+    "permissionsHeading": "Permisos Solicitados",
+    "modeRead": "Lectura",
+    "modeWrite": "Escritura",
+    "readOnlyToggleLabel": "Conceder acceso solo de lectura (Read-Only)",
+    "readOnlyToggleDesc": "Elimina todos los permisos de escritura para que este asistente solo consulte datos sin modificar registros ni iniciar sincronizaciones.",
+    "securityExclusionNote": "Eliminación de cuenta, cambios de contraseña/correo, credenciales de integraciones y gestión de tokens nunca son accesibles vía MCP.",
+    "approve": "Autorizar",
+    "deny": "Denegar",
+    "scopes": {
+      "recomp_read": "Leer todos los datos de Recomp Pro (perfil, biometría, entrenamientos, integraciones, enlaces compartidos)",
+      "recomp_write": "Modificar datos de Recomp Pro (objetivos de perfil, favoritos, eliminación de registros, sincronizaciones, enlaces compartidos)",
+      "profile_read": "Leer tu perfil de usuario y objetivos de composición corporal",
+      "profile_write": "Actualizar datos del perfil y peso objetivo",
+      "biometrics_read": "Leer tus mediciones de composición corporal y resúmenes",
+      "biometrics_write": "Destacar o eliminar registros biométricos",
+      "workouts_read": "Leer tus entrenamientos, récords de progresión y preparación muscular",
+      "workouts_write": "Registrar o actualizar sesiones de entrenamiento",
+      "integrations_read": "Ver el estado de las integraciones conectadas (Fitdays, Hevy)",
+      "integrations_write": "Iniciar sincronización con cuentas conectadas de Fitdays/Hevy",
+      "shared_links_read": "Ver tus enlaces de informes compartidos y resúmenes de acceso",
+      "shared_links_write": "Crear, actualizar y revocar enlaces de informes compartidos",
+      "nutrition_read": "Leer registros nutricionales y balance energético",
+      "nutrition_write": "Registrar y actualizar entradas de nutrición"
+    }
   }
 }
