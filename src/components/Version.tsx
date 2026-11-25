@@ -21,7 +21,7 @@ interface VersionProps {
   isCollapsed?: boolean;
 }
 
-const VERSION = "0.8.1";
+const VERSION = "0.8.2-rc.1";
 const GITHUB_REPO = "https://github.com/cfassoni/RecompPro-core";
 const GITHUB_ISSUES = "https://github.com/cfassoni/RecompPro-core/issues";
 const RELEASE_URL = `https://github.com/cfassoni/RecompPro-core/releases/tag/v${VERSION}`;
