@@ -16,7 +16,8 @@ The MCP server enables external AI assistants and agentic IDEs—both **web/clou
 1. **100% Native Monolith Embedding:** Run inside the existing Recomp Pro Next.js 16 standalone container (`RecompPro-core`) with zero Python dependencies and direct access to Drizzle ORM and shared domain services.
 2. **Broad Agent Compatibility (Web & Desktop):** Support **Streamable HTTP** (`/mcp`) and **OAuth 2.1** (both **CIMD** and **DCR** with mandatory **PKCE `S256`** and rotating refresh tokens), plus **Personal Access Tokens (PATs)** via `Authorization: Bearer`, ensuring seamless interoperability with **Gemini (Web & CLI)**, **Antigravity**, **Claude (Web & Desktop)**, **ChatGPT**, **Cursor**, and **VS Code**.
 3. **Full Read & Safe Write Coverage:** Expose all current domain capabilities (Profile, Biometrics, Workouts & Muscle Readiness, Integrations Sync, Shared Links) with explicit **Read-Only** vs **Read+Write** consent controls and hard exclusions for high-risk account/credential operations.
-4. **Future-Proof Parity:** Guarantee that upcoming Recomp Pro features (such as **Nutrition**, **Manual Biometric Entry**, and **Workout Logging/Routines**) automatically gain MCP coverage through a shared Domain Service Layer and modular MCP Registry.
+4. **In-Protocol Skills & Cross-Platform Plugins:** Serve canonical Agent Skills natively over MCP via **SEP-2640 (`io.modelcontextprotocol/skills`)** and package the same single-source skills alongside pre-configured Streamable HTTP endpoints into installable **`.zip` plugin bundles** and **Git-based marketplaces** for **Antigravity**, **Claude**, and **ChatGPT/Codex**.
+5. **Future-Proof Parity:** Guarantee that upcoming Recomp Pro features (such as **Nutrition**, **Manual Biometric Entry**, and **Workout Logging/Routines**) automatically gain MCP coverage through a shared Domain Service Layer and modular MCP Registry.
 
 ---
 
@@ -41,6 +42,9 @@ Recomp Pro operates as a single self-hosted Node.js 22+ container (`output: "sta
 | `/oauth/token` | `POST`, `OPTIONS` | OAuth 2.1 Token Endpoint (`authorization_code`, `refresh_token`) |
 | `/oauth/revoke` | `POST`, `OPTIONS` | RFC 7009 Token Revocation Endpoint |
 | `/icon.png` | `GET`, `HEAD` | Canonical 512x512 PNG brand icon for SEP-973 `serverInfo` |
+| `/api/mcp/bundles/antigravity.zip` | `GET` | Authenticated download of personalized Antigravity plugin `.zip` |
+| `/api/mcp/bundles/claude.zip` | `GET` | Authenticated download of personalized Claude Cowork/Desktop/Code plugin `.zip` |
+| `/api/mcp/bundles/chatgpt.zip` | `GET` | Authenticated download of personalized ChatGPT/Codex Agent Plugins 1.0 `.zip` |
 
 ### 2.3 Runtime Environment Variables (Zero-Rebuild)
 Consistent with `DEPLOYMENT.md`, all MCP configuration variables are evaluated dynamically at request/startup time without requiring a Docker image rebuild:
@@ -88,6 +92,29 @@ Browser-based MCP clients execute cross-origin `fetch()` calls to discovery, OAu
   - `Access-Control-Allow-Headers: Authorization, Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version`
   - `Access-Control-Expose-Headers: Mcp-Session-Id, WWW-Authenticate`
   - `Access-Control-Max-Age: 86400`
+
+### 3.4 SEP-2640 Skills Extension (`io.modelcontextprotocol/skills`)
+To ship procedural workflows alongside tools ("ship the manual with the product"), the MCP server implements **SEP-2640 (Skills Extension)**:
+
+- **Capability Declaration:** During `initialize`, the server declares:
+  ```json
+  {
+    "capabilities": {
+      "resources": {},
+      "extensions": {
+        "io.modelcontextprotocol/skills": {
+          "directoryRead": true
+        }
+      }
+    }
+  }
+  ```
+- **Protocol Methods & Content Delivery:**
+  - `skills/list`: Returns the deterministic catalog of available skills, including parsed YAML frontmatter (`name`, `description`, `compatibility`), `skill://<slug>` URIs, byte sizes, and **SHA-256 digests** for every file in each skill directory.
+  - `skills/get`: Retrieves a single skill's manifest and file digests by `skill://<slug>` URI.
+  - `resources/read` & `resources/directory/read`: Delivers the full contents of `SKILL.md`, `references/*`, and `templates/*` under `skill://<slug>/<path>` on demand (progressive disclosure), minimizing context bloat.
+- **Scope-Aware Visibility:** Skills whose primary workflow relies on write mutations (e.g., `shared-report-curator`) are filtered from `skills/list` and rejected on `skills/get` / `resources/read` when the caller holds a Read-Only token.
+- **Backward Compatibility & SDK Fallback:** Clients that do not advertise or recognize `io.modelcontextprotocol/skills` safely ignore the extension capability and continue using `tools/*`, `resources/*`, and `prompts/*`. If the pinned `@modelcontextprotocol/sdk` version lacks built-in high-level skill helpers, the server registers JSON-RPC handlers for `skills/list`, `skills/get`, and `resources/directory/read` directly via `server.setRequestHandler(...)` alongside the `capabilities.extensions` block.
 
 ---
 
@@ -378,6 +405,9 @@ flowchart LR
     AIClients["AI Clients (Claude, Gemini, ChatGPT, Antigravity)"] --> McpEndpoint["Streamable HTTP (/mcp)"]
     McpEndpoint --> AuthGuard["OAuth 2.1 / PAT & Scope Guard"]
     AuthGuard --> McpRegistry["Modular MCP Registry (src/lib/mcp/modules/*)"]
+    AuthGuard --> SkillsRegistry["SEP-2640 Skills Registry (src/lib/mcp/skillsRegistry.ts)"]
+    CanonicalSkills["Canonical Skills (src/lib/mcp/skills/*)"] --> SkillsRegistry
+    CanonicalSkills --> BundleGen["Dynamic .zip & Marketplace Builder"]
     ApiRoutes --> DomainServices["Shared Domain Services (src/lib/services/*)"]
     McpRegistry --> DomainServices
     DomainServices --> DrizzleDB["Drizzle ORM + SQLite"]
@@ -386,6 +416,11 @@ flowchart LR
 
 ### 7.2 Proposed Directory Structure
 ```text
+.claude-plugin/
+└── marketplace.json             # Git-based Claude Code/Cowork marketplace index
+.agents/
+└── plugins/
+    └── marketplace.json         # Git-based Codex / Agent Plugins 1.0 marketplace index
 src/
 ├── lib/
 │   ├── services/
@@ -395,8 +430,10 @@ src/
 │   │   ├── integrationsService.ts
 │   │   └── sharedLinksService.ts
 │   └── mcp/
-│       ├── server.ts            # McpServer factory, SEP-973 serverInfo, transport wiring
+│       ├── server.ts            # McpServer factory, SEP-973 serverInfo, SEP-2640 capability
 │       ├── registry.ts          # Collects modules, enforces scope & audit wrappers
+│       ├── skillsRegistry.ts    # SEP-2640 skills/list, skills/get & SHA-256 manifests
+│       ├── bundleGenerator.ts   # Pure Node.js .zip builder (Antigravity, Claude, ChatGPT)
 │       ├── auth.ts              # Bearer token (OAuth/PAT) resolution & scope checker
 │       ├── oauth/
 │       │   ├── cimd.ts          # Anti-SSRF CIMD fetcher + 1h TTL cache
@@ -404,6 +441,11 @@ src/
 │       │   ├── pkce.ts          # S256 verification
 │       │   └── tokens.ts        # Digest-only issuance, rotation, reuse detection
 │       ├── audit.ts             # Sanitized audit logging & retention pruning
+│       ├── skills/              # Single Source of Truth for Agent Skills
+│       │   ├── recomp-progress-analysis/SKILL.md
+│       │   ├── training-readiness-coach/SKILL.md
+│       │   ├── biometrics-interpreter/SKILL.md
+│       │   └── shared-report-curator/SKILL.md
 │       └── modules/
 │           ├── system.ts        # `about` tool
 │           ├── profile.ts       # Profile tools & resources
@@ -414,6 +456,9 @@ src/
 └── app/
     ├── mcp/route.ts
     ├── icon.png/route.ts
+    ├── api/
+    │   └── mcp/
+    │       └── bundles/[target]/route.ts  # Serves antigravity.zip, claude.zip, chatgpt.zip
     ├── .well-known/
     │   ├── oauth-protected-resource/route.ts
     │   ├── oauth-protected-resource/mcp/route.ts
@@ -494,16 +539,77 @@ To guarantee every future Recomp Pro feature (e.g., **Nutrition**, **Manual Biom
 - **Manual Biometric Entry (`biometrics:write`):** `create_biometric_record` / `import_biometrics_csv` once manual entry exists in the core UI.
 - **Workout Logging & Routines (`workouts:write`):** `log_workout`, `create_routine` once native workout creation lands in the core app.
 
+### 8.5 Canonical Agent Skills Catalog (SEP-2640 & Plugin Bundles)
+
+| Skill Slug (`skill://...`) | Required Scope | Purpose |
+| :--- | :--- | :--- |
+| `recomp-progress-analysis` | `biometrics:read`, `workouts:read` | Guides the agent through combining biometric trends, segmental balance, target weight delta, and training volume into a structured progress review. |
+| `training-readiness-coach` | `workouts:read` | Combines `get_muscle_readiness`, recent workout RPE, and double-progression prescriptions to plan the next training session. |
+| `biometrics-interpreter` | `biometrics:read`, `profile:read` | Explains bioimpedance scans (visceral fat, skeletal muscle %, SMI, segmental symmetry, impedance deltas) without fabricating clinical diagnoses. |
+| `shared-report-curator` | `biometrics:read`, `shared_links:write` | Helps select key/starred scans, draft descriptions, and safely create/update a coach or physician `shared_link`. |
+
 ---
 
-## 9. User Experience & Management UI
+## 9. Cross-Platform Plugin Packaging (`.zip` & Marketplaces)
+
+### 9.1 The Self-Hosted Distribution Challenge & Two-Channel Strategy
+Because Recomp Pro is self-hosted, each user operates their own private origin (`https://<user-domain>/mcp`) rather than a single global SaaS URL. To deliver a frictionless experience from a **single canonical skills source (`src/lib/mcp/skills/*`)**, Recomp Pro provides two complementary distribution channels:
+
+1. **Dynamic Personalized `.zip` Bundles (Zero-Config URL):** Generated on-demand by the user's own Recomp Pro instance (`GET /api/mcp/bundles/{antigravity,claude,chatgpt}.zip`) using a pure Node.js zip utility (e.g., `fflate` — zero Python). Each archive dynamically injects the instance's `NEXT_PUBLIC_APP_URL` (`https://<origin>/mcp`) into the platform's MCP manifest, with **zero embedded tokens or credentials** (OAuth 2.1 handles authentication interactively on first connect).
+2. **Git-Based Marketplace Catalogs (Skills + MCP Template):** Published directly from the `RecompPro-core` repository so CLI/desktop users can subscribe via Git marketplaces. Because Git catalogs are public and instance-agnostic, their MCP config ships with an explicit `${RECOMP_PRO_URL}/mcp` placeholder/prompt alongside all canonical skills. *(Public curated SaaS app directories—such as Anthropic's or OpenAI's central hosted directories—require a centrally hosted endpoint and formal vendor review, making dynamic `.zip` + Git Marketplaces the optimal open-source self-hosted pattern.)*
+
+### 9.2 Platform Bundle Specifications
+
+#### A. Antigravity (`recomp-pro-antigravity.zip`)
+Follows Antigravity's native plugin layout (strictly omitting unknown top-level fields in `plugin.json`):
+```text
+recomp-pro/
+├── plugin.json             # name, displayName, description, version, logo, suggestedPrompts, author, homepage, repository
+├── mcp_config.json         # { "mcpServers": { "recomp-pro": { "url": "https://<origin>/mcp" } } }
+├── assets/
+│   └── logo.png            # Canonical 512x512 icon
+├── rules/
+│   └── AGENTS.md           # Concise domain guardrails (unit fidelity, destructive-tool confirmation)
+└── skills/
+    └── <skill-slug>/SKILL.md
+```
+
+#### B. Claude Cowork / Desktop / Code (`recomp-pro-claude.zip`)
+Compatible with Claude Cowork's direct `.zip` upload (*Plugins ➔ Add ➔ Upload plugin*) and Claude Code/Desktop:
+```text
+recomp-pro/
+├── .claude-plugin/
+│   └── plugin.json         # name, version, description, author, homepage, repository
+├── .mcp.json               # { "mcpServers": { "recomp-pro": { "type": "http", "url": "https://<origin>/mcp" } } }
+└── skills/
+    └── <skill-slug>/SKILL.md
+```
+
+#### C. ChatGPT / Codex — Agent Plugins 1.0 (`recomp-pro-chatgpt.zip`)
+Follows the open Agent Plugins 1.0 layout compatible with ChatGPT/Codex `.zip` ingestion:
+```text
+plugin.json                 # At zip root: $schema (agent-plugins.org/schemas/1.0.0/plugin.schema.json), name, version, description
+mcp.json                    # { "mcpServers": { "recomp-pro": { "type": "http", "url": "https://<origin>/mcp" } } }
+skills/
+└── <skill-slug>/SKILL.md
+```
+
+### 9.3 Repository Git Marketplace Indexes
+- **Claude Marketplace (`.claude-plugin/marketplace.json`):** Enables `/plugin marketplace add cfassoni/RecompPro-core` and `/plugin install recomp-pro@recomppro-core`.
+- **Codex / Agent Plugins Marketplace (`.agents/plugins/marketplace.json`):** Indexes the `recomp-pro` plugin bundle for Codex/Agent Plugins 1.0 consumers.
+- An npm build/validation script (`npm run mcp:build-plugins`) keeps marketplace manifests synchronized with `src/lib/mcp/skills/` and verifies schema compliance in CI.
+
+---
+
+## 10. User Experience & Management UI
 
 All new UI components must comply strictly with `docs/UI_AND_I18N_GUIDELINES.md`, modal dismissal ergonomics (`Escape` + backdrop click), and full translation key parity across `src/locales/en.json`, `src/locales/pt.json`, and `src/locales/es.json`.
 
-### 9.1 Profile Tab: "AI / MCP" (`/profile`)
+### 10.1 Profile Tab: "AI / MCP" (`/profile`)
 Add a dedicated **AI / MCP** tab inside the Profile view containing:
-1. **MCP Endpoint & Quick-Connect Snippets:**
+1. **MCP Endpoint, Plugin Downloads & Quick-Connect Snippets:**
    - Displays the canonical Streamable HTTP URL (`<origin>/mcp`) with one-click copy.
+   - **One-Click Plugin Downloads (`.zip`):** Download buttons for **Antigravity**, **Claude**, and **ChatGPT / Codex** (`/api/mcp/bundles/{antigravity,claude,chatgpt}.zip`), pre-wired with the instance URL.
    - Pre-formatted setup guides/snippets tailored for **Claude (Web & Desktop)**, **ChatGPT**, **Gemini (Web & CLI)**, and **Antigravity / Cursor / VS Code**.
    - Hidden or displays a disabled notice if `ENABLE_MCP_SERVER=false`.
 2. **Connected AI Applications (OAuth Grants):**
@@ -515,7 +621,7 @@ Add a dedicated **AI / MCP** tab inside the Profile view containing:
 4. **Recent MCP Activity (Audit Log):**
    - Collapsible card (defaulting to **collapsed** per `docs/UI_AND_I18N_GUIDELINES.md`) with a scrollable container (`max-h-[400px] overflow-y-auto`) and sticky header (`sticky top-0 bg-card z-10`) displaying recent `mcp_audit_logs` entries (timestamp, client, primitive, read/write badge, status, duration).
 
-### 9.2 Native Consent Screen (`/oauth/authorize`)
+### 10.2 Native Consent Screen (`/oauth/authorize`)
 - Integrated with Recomp Pro authentication: unauthenticated visitors redirect cleanly to `/login?redirect=<encoded_authorize_url>` and return automatically after sign-in.
 - Displays:
   - Logged-in user identity + **`[Switch Account]`** action (clears session and redirects back to `/login?redirect=...`).
@@ -526,7 +632,7 @@ Add a dedicated **AI / MCP** tab inside the Profile view containing:
 
 ---
 
-## 10. Phased Implementation Roadmap & Verification Criteria
+## 11. Phased Implementation Roadmap & Verification Criteria
 
 ### Phase 1: Foundation, Database Schema, Transport & OAuth 2.1 Server
 - Add Drizzle tables (`mcp_oauth_clients`, `mcp_oauth_auth_codes`, `mcp_oauth_grants`, `mcp_oauth_tokens`, `mcp_personal_access_tokens`, `mcp_audit_logs`) and generate migration (`npm run db:generate`).
@@ -547,7 +653,14 @@ Add a dedicated **AI / MCP** tab inside the Profile view containing:
 - **Verification:** Tests covering write scope denial on Read-Only tokens, destructive/idempotent tool behaviors, audit log recording/pruning, and hard-excluded security operations remaining unreachable.
 
 ### Phase 4: Profile "AI / MCP" UI, i18n & Live Client Matrix Verification
-- Build **Profile > AI / MCP** management tab (snippets, OAuth grant management, PAT creation/revocation, collapsible audit log) and profile API endpoints for token/grant management.
+- Build **Profile > AI / MCP** management tab (snippets, `.zip` download triggers, OAuth grant management, PAT creation/revocation, collapsible audit log) and profile API endpoints for token/grant management.
 - Add complete `en.json`, `pt.json`, and `es.json` translations (verified by `locale_parity.test.ts`).
 - Run full local verification suite (`npm run lint`, `npm test`, `npm run build`, `docker compose build`).
 - Execute end-to-end compatibility validation against **Claude Web**, **Claude Desktop**, **Gemini (Web / CLI)**, **ChatGPT**, and **Antigravity**.
+
+### Phase 5: SEP-2640 Skills Extension & Cross-Platform Plugin Distribution
+- Author canonical `SKILL.md` playbooks under `src/lib/mcp/skills/` (`recomp-progress-analysis`, `training-readiness-coach`, `biometrics-interpreter`, `shared-report-curator`).
+- Implement SEP-2640 (`io.modelcontextprotocol/skills`) capability declaration, `skills/list`, `skills/get`, SHA-256 file manifest verification, and `resources/read` / `resources/directory/read` delivery on `/mcp` with scope filtering.
+- Implement pure Node.js `.zip` bundle generator (`src/lib/mcp/bundleGenerator.ts` + `GET /api/mcp/bundles/[target]`) for `antigravity.zip`, `claude.zip`, and `chatgpt.zip`, dynamically injecting `NEXT_PUBLIC_APP_URL` without secrets.
+- Add Git-based marketplace catalogs (`.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`) and `npm run mcp:build-plugins` validation script.
+- **Verification:** Unit/integration tests for SEP-2640 `skills/list` & `skills/get` SHA-256 digests and scope filtering; `.zip` archive structure & schema validation tests for all 3 targets (confirming zero embedded secrets); marketplace manifest checks; and live plugin import testing in Antigravity, Claude Cowork/Desktop, and ChatGPT/Codex.
