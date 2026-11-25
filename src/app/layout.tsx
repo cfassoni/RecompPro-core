@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { resolveLanguage } from "@/lib/locale";
+import { isMcpServerEnabled, isWipPagesEnabled } from "@/lib/featureFlags";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +38,8 @@ export default async function RootLayout({
   const headerStore = await headers();
   const acceptLanguage = headerStore.get("accept-language");
   const initialLang = resolveLanguage(langCookie, acceptLanguage);
-  const enableWipPages = process.env.ENABLE_WIP_PAGES === "true";
+  const enableWipPages = isWipPagesEnabled();
+  const enableMcpServer = isMcpServerEnabled();
 
   return (
     <html
@@ -54,7 +56,11 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          <AuthProvider initialLang={initialLang} enableWipPages={enableWipPages}>
+          <AuthProvider
+            initialLang={initialLang}
+            enableWipPages={enableWipPages}
+            enableMcpServer={enableMcpServer}
+          >
             {children}
           </AuthProvider>
         </ThemeProvider>

@@ -4,6 +4,7 @@ import {
   text,
   real,
   unique,
+  index,
   customType,
 } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
@@ -292,6 +293,141 @@ export const workoutSets = sqliteTable("workout_sets", {
 });
 
 // -----------------------------------------------------------------------------
+// Table: MCP OAuth Clients (CIMD & DCR)
+// -----------------------------------------------------------------------------
+export const mcpOauthClients = sqliteTable("mcp_oauth_clients", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: text("client_id").notNull().unique(),
+  registrationType: text("registration_type").notNull(), // "cimd" | "dcr"
+  clientName: text("client_name").notNull(),
+  clientUri: text("client_uri"),
+  logoUri: text("logo_uri"),
+  redirectUrisJson: text("redirect_uris_json").notNull(),
+  metadataJson: text("metadata_json"),
+  metadataExpiresAt: sqliteDateTime("metadata_expires_at"),
+  lastUsedAt: sqliteDateTime("last_used_at"),
+  createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+});
+
+// -----------------------------------------------------------------------------
+// Table: MCP OAuth Authorization Codes (Short-Lived PKCE S256)
+// -----------------------------------------------------------------------------
+export const mcpOauthAuthCodes = sqliteTable("mcp_oauth_auth_codes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  codeHash: text("code_hash").notNull().unique(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => mcpOauthClients.clientId, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri").notNull(),
+  scope: text("scope").notNull(),
+  resource: text("resource"),
+  codeChallenge: text("code_challenge").notNull(),
+  codeChallengeMethod: text("code_challenge_method").notNull(),
+  expiresAt: sqliteDateTime("expires_at").notNull(),
+  consumedAt: sqliteDateTime("consumed_at"),
+  createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+});
+
+// -----------------------------------------------------------------------------
+// Table: MCP OAuth Grants (User-Approved Client Connections)
+// -----------------------------------------------------------------------------
+export const mcpOauthGrants = sqliteTable(
+  "mcp_oauth_grants",
+  {
+    id: text("id").primaryKey(), // UUID string
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => mcpOauthClients.clientId, { onDelete: "cascade" }),
+    grantedScopes: text("granted_scopes").notNull(),
+    lastUsedAt: sqliteDateTime("last_used_at"),
+    revokedAt: sqliteDateTime("revoked_at"),
+    createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+    updatedAt: sqliteDateTime("updated_at").notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    unique("_mcp_user_client_uc").on(table.userId, table.clientId),
+  ]
+);
+
+// -----------------------------------------------------------------------------
+// Table: MCP OAuth Tokens (SHA-256 Digest Access & Rotating Refresh Tokens)
+// -----------------------------------------------------------------------------
+export const mcpOauthTokens = sqliteTable(
+  "mcp_oauth_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => mcpOauthGrants.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull(),
+    tokenType: text("token_type").notNull(), // "access" | "refresh"
+    tokenHash: text("token_hash").notNull().unique(),
+    familyId: text("family_id").notNull(),
+    scope: text("scope").notNull(),
+    resource: text("resource"),
+    expiresAt: sqliteDateTime("expires_at").notNull(),
+    rotatedAt: sqliteDateTime("rotated_at"),
+    revokedAt: sqliteDateTime("revoked_at"),
+    createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("idx_mcp_oauth_tokens_family").on(table.familyId),
+  ]
+);
+
+// -----------------------------------------------------------------------------
+// Table: MCP Personal Access Tokens (PATs)
+// -----------------------------------------------------------------------------
+export const mcpPersonalAccessTokens = sqliteTable("mcp_personal_access_tokens", {
+  id: text("id").primaryKey(), // UUID string
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tokenPrefix: text("token_prefix").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  scopes: text("scopes").notNull(),
+  lastUsedAt: sqliteDateTime("last_used_at"),
+  expiresAt: sqliteDateTime("expires_at"),
+  revokedAt: sqliteDateTime("revoked_at"),
+  createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+});
+
+// -----------------------------------------------------------------------------
+// Table: MCP Audit Logs
+// -----------------------------------------------------------------------------
+export const mcpAuditLogs = sqliteTable(
+  "mcp_audit_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    authMethod: text("auth_method").notNull(), // "oauth" | "pat"
+    clientLabel: text("client_label").notNull(),
+    primitiveType: text("primitive_type").notNull(), // "tool" | "resource" | "prompt"
+    primitiveName: text("primitive_name").notNull(),
+    accessMode: text("access_mode").notNull(), // "read" | "write"
+    status: text("status").notNull(), // "success" | "denied" | "error"
+    errorCode: text("error_code"),
+    durationMs: integer("duration_ms").notNull(),
+    createdAt: sqliteDateTime("created_at").notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("idx_mcp_audit_logs_user_created").on(table.userId, table.createdAt),
+  ]
+);
+
+// -----------------------------------------------------------------------------
 // Relations (Declared strictly after all table definitions)
 // -----------------------------------------------------------------------------
 export const usersRelations = relations(users, ({ many }) => ({
@@ -300,6 +436,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   integrations: many(userIntegrations),
   workouts: many(workouts),
   customExercises: many(exerciseTemplates),
+  mcpOauthAuthCodes: many(mcpOauthAuthCodes),
+  mcpOauthGrants: many(mcpOauthGrants),
+  mcpOauthTokens: many(mcpOauthTokens),
+  mcpPersonalAccessTokens: many(mcpPersonalAccessTokens),
+  mcpAuditLogs: many(mcpAuditLogs),
 }));
 
 export const exerciseTemplatesRelations = relations(exerciseTemplates, ({ one, many }) => ({
@@ -371,5 +512,58 @@ export const sharedLinkAuditLogsRelations = relations(sharedLinkAuditLogs, ({ on
   sharedLink: one(sharedLinks, {
     fields: [sharedLinkAuditLogs.sharedLinkId],
     references: [sharedLinks.id],
+  }),
+}));
+
+export const mcpOauthClientsRelations = relations(mcpOauthClients, ({ many }) => ({
+  authCodes: many(mcpOauthAuthCodes),
+  grants: many(mcpOauthGrants),
+}));
+
+export const mcpOauthAuthCodesRelations = relations(mcpOauthAuthCodes, ({ one }) => ({
+  client: one(mcpOauthClients, {
+    fields: [mcpOauthAuthCodes.clientId],
+    references: [mcpOauthClients.clientId],
+  }),
+  user: one(users, {
+    fields: [mcpOauthAuthCodes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const mcpOauthGrantsRelations = relations(mcpOauthGrants, ({ one, many }) => ({
+  user: one(users, {
+    fields: [mcpOauthGrants.userId],
+    references: [users.id],
+  }),
+  client: one(mcpOauthClients, {
+    fields: [mcpOauthGrants.clientId],
+    references: [mcpOauthClients.clientId],
+  }),
+  tokens: many(mcpOauthTokens),
+}));
+
+export const mcpOauthTokensRelations = relations(mcpOauthTokens, ({ one }) => ({
+  grant: one(mcpOauthGrants, {
+    fields: [mcpOauthTokens.grantId],
+    references: [mcpOauthGrants.id],
+  }),
+  user: one(users, {
+    fields: [mcpOauthTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+export const mcpPersonalAccessTokensRelations = relations(mcpPersonalAccessTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [mcpPersonalAccessTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+export const mcpAuditLogsRelations = relations(mcpAuditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [mcpAuditLogs.userId],
+    references: [users.id],
   }),
 }));

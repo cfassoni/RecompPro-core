@@ -1,24 +1,35 @@
 "use client";
 
 import { useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Login from "@/views/Login";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
+function resolveSafeRedirect(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed;
+  }
+  return "/dashboard";
+}
+
 function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = resolveSafeRedirect(searchParams.get("redirect"));
   const { isAuthenticated, isCheckingAuth, checkAuth } = useAuth();
 
   useEffect(() => {
     if (!isCheckingAuth && isAuthenticated) {
-      router.replace("/dashboard");
+      router.replace(redirectTarget);
     }
-  }, [isCheckingAuth, isAuthenticated, router]);
+  }, [isCheckingAuth, isAuthenticated, router, redirectTarget]);
 
   const handleLoginSuccess = async () => {
     await checkAuth();
-    router.push("/dashboard");
+    router.push(redirectTarget);
   };
 
   return (

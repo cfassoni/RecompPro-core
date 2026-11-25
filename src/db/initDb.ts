@@ -331,6 +331,113 @@ export async function ensureTablesExist(): Promise<void> {
     );
   `);
 
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS mcp_oauth_clients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      client_id TEXT NOT NULL UNIQUE,
+      registration_type TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      client_uri TEXT,
+      logo_uri TEXT,
+      redirect_uris_json TEXT NOT NULL,
+      metadata_json TEXT,
+      metadata_expires_at DATETIME,
+      last_used_at DATETIME,
+      created_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS mcp_oauth_auth_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      code_hash TEXT NOT NULL UNIQUE,
+      client_id TEXT NOT NULL REFERENCES mcp_oauth_clients(client_id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      redirect_uri TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      resource TEXT,
+      code_challenge TEXT NOT NULL,
+      code_challenge_method TEXT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      consumed_at DATETIME,
+      created_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS mcp_oauth_grants (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_id TEXT NOT NULL REFERENCES mcp_oauth_clients(client_id) ON DELETE CASCADE,
+      granted_scopes TEXT NOT NULL,
+      last_used_at DATETIME,
+      revoked_at DATETIME,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS _mcp_user_client_uc ON mcp_oauth_grants (user_id, client_id);
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS mcp_oauth_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      grant_id TEXT NOT NULL REFERENCES mcp_oauth_grants(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_id TEXT NOT NULL,
+      token_type TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      family_id TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      resource TEXT,
+      expires_at DATETIME NOT NULL,
+      rotated_at DATETIME,
+      revoked_at DATETIME,
+      created_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE INDEX IF NOT EXISTS idx_mcp_oauth_tokens_family ON mcp_oauth_tokens (family_id);
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS mcp_personal_access_tokens (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      token_prefix TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      scopes TEXT NOT NULL,
+      last_used_at DATETIME,
+      expires_at DATETIME,
+      revoked_at DATETIME,
+      created_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS mcp_audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      auth_method TEXT NOT NULL,
+      client_label TEXT NOT NULL,
+      primitive_type TEXT NOT NULL,
+      primitive_name TEXT NOT NULL,
+      access_mode TEXT NOT NULL,
+      status TEXT NOT NULL,
+      error_code TEXT,
+      duration_ms INTEGER NOT NULL,
+      created_at DATETIME NOT NULL
+    );
+  `);
+
+  await db.run(sql`
+    CREATE INDEX IF NOT EXISTS idx_mcp_audit_logs_user_created ON mcp_audit_logs (user_id, created_at);
+  `);
+
   // Defensive migrations for existing SQLite databases
   try {
     await db.run(sql`ALTER TABLE recomp_records ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`);
