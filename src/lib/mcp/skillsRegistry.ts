@@ -42,12 +42,11 @@ export interface Sep2640SkillDto {
   resources: Sep2640SkillResource[];
 }
 
-export interface Sep2640DirectoryEntry {
-  name: string;
+export interface Sep2640DirectoryResource {
   uri: string;
-  type: "file" | "directory";
+  name: string;
+  mimeType: string;
   size?: number;
-  mimeType?: string;
 }
 
 const SKILLS_ROOT = path.resolve(process.cwd(), "src", "lib", "mcp", "skills");
@@ -331,7 +330,7 @@ export function readAuthorizedSkillDirectory(
   grantedScopes: readonly string[],
   skillsRoot: string = SKILLS_ROOT
 ): {
-  entries: Sep2640DirectoryEntry[];
+  resources: Sep2640DirectoryResource[];
 } {
   const { slug, subPath } = parseSkillUri(uriOrSlug);
   const skill = loadCanonicalSkills(skillsRoot).find((s) => s.slug === slug);
@@ -376,30 +375,28 @@ export function readAuthorizedSkillDirectory(
     .readdirSync(resolvedTarget, { withFileTypes: true })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const entries: Sep2640DirectoryEntry[] = [];
+  const resources: Sep2640DirectoryResource[] = [];
   for (const dirent of dirents) {
     const relPath = cleanSubPath ? `${cleanSubPath}/${dirent.name}` : dirent.name;
     const entryUri = `skill://${skill.slug}/${relPath}`;
     if (dirent.isDirectory()) {
-      entries.push({
-        name: dirent.name,
+      resources.push({
         uri: entryUri,
-        type: "directory",
+        name: dirent.name,
         mimeType: "inode/directory",
       });
     } else if (dirent.isFile()) {
       const stat = fs.statSync(path.join(resolvedTarget, dirent.name));
-      entries.push({
-        name: dirent.name,
+      resources.push({
         uri: entryUri,
-        type: "file",
-        size: stat.size,
+        name: dirent.name,
         mimeType: inferMimeType(relPath),
+        size: stat.size,
       });
     }
   }
 
-  return { entries };
+  return { resources };
 }
 
 const SkillsListRequestSchema = z.object({
@@ -463,7 +460,7 @@ export function registerSep2640OnMcpServer(server: McpServer, auth: McpAuthConte
       throw new McpError(ErrorCode.InvalidParams, "Either uri or name is required");
     }
     const skill = getAuthorizedSkill(target, auth.scopes);
-    return skill as unknown as ServerResult;
+    return { skill } as unknown as ServerResult;
   });
 
   server.server.setRequestHandler(ResourcesDirectoryReadRequestSchema, async (request) => {

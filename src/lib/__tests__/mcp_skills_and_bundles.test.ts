@@ -179,11 +179,15 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
     const getRes = await rpc(readWritePat, 6, "skills/get", {
       uri: "skill://biometrics-interpreter/SKILL.md",
     });
-    const bioSkill = getRes.payload.result as {
-      uri: string;
-      frontmatter: { name: string };
-      resources: Array<{ uri: string; digest: string; size: number }>;
-    };
+    const bioSkill = (
+      getRes.payload.result as {
+        skill: {
+          uri: string;
+          frontmatter: { name: string };
+          resources: Array<{ uri: string; digest: string; size: number }>;
+        };
+      }
+    ).skill;
     expect(bioSkill.uri).toBe("skill://biometrics-interpreter/SKILL.md");
     expect(bioSkill.frontmatter.name).toBe("biometrics-interpreter");
 
@@ -204,14 +208,14 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
       uri: "skill://training-readiness-coach",
     });
     const dirResult = dirReadRes.payload.result as {
-      entries: Array<{ name: string; uri: string; type: string; size?: number }>;
+      resources: Array<{ name: string; uri: string; mimeType: string; size?: number }>;
     };
-    expect(dirResult.entries).toEqual(
+    expect(dirResult.resources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: "SKILL.md",
           uri: "skill://training-readiness-coach/SKILL.md",
-          type: "file",
+          mimeType: "text/markdown",
         }),
       ])
     );
