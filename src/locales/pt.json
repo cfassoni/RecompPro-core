@@ -459,7 +459,132 @@
       "personal": "Dados Pessoais",
       "security": "Segurança",
       "privacy": "Privacidade",
-      "integrations": "Integrações"
+      "integrations": "Integrações",
+      "mcp": "AI / MCP"
+    },
+    "mcp": {
+      "title": "Assistentes de IA & Servidor MCP",
+      "subtitle": "Conecte Claude, ChatGPT, Gemini, Antigravity e IDEs diretamente aos seus dados do Recomp Pro.",
+      "disabledTitle": "Servidor MCP Desativado",
+      "disabledDesc": "O servidor MCP embutido está desativado nesta instância (ENABLE_MCP_SERVER=false).",
+      "loadError": "Não foi possível carregar os dados de conexão MCP.",
+      "copied": "Copiado",
+      "copy": "Copiar",
+      "endpointCard": {
+        "title": "Endpoint Streamable HTTP",
+        "desc": "Use esta URL em qualquer cliente compatível com MCP. Clientes na nuvem exigem origem HTTPS pública.",
+        "label": "URL do Servidor MCP",
+        "oauthNote": "Compatível com OAuth 2.1 (CIMD/DCR + PKCE S256) e Personal Access Tokens via Authorization: Bearer."
+      },
+      "quickConnect": {
+        "title": "Guias de Conexão Rápida",
+        "desc": "Selecione seu cliente de IA para ver as instruções e copiar a configuração pronta.",
+        "clients": {
+          "claude": "Claude",
+          "chatgpt": "ChatGPT",
+          "gemini": "Gemini",
+          "ide": "Antigravity / IDE"
+        },
+        "instructions": {
+          "claude": "No Claude Web (Settings → Connectors → Add custom connector) ou Claude Desktop, cole a URL do servidor MCP acima e conclua o login OAuth, ou use o snippet abaixo.",
+          "chatgpt": "No ChatGPT (Settings → Apps & Connectors → Developer Mode → Create), informe a URL HTTPS do servidor MCP com autenticação OAuth 2.1.",
+          "gemini": "No Gemini CLI, adicione o servidor Streamable HTTP em ~/.gemini/settings.json usando OAuth ou um Personal Access Token.",
+          "ide": "No Antigravity, Cursor ou VS Code, adicione a entrada no arquivo de configuração MCP usando OAuth ou Bearer Personal Access Token."
+        }
+      },
+      "grants": {
+        "title": "Aplicações de IA Conectadas",
+        "desc": "Clientes OAuth 2.1 autorizados a acessar sua conta.",
+        "empty": "Nenhuma aplicação de IA conectada via OAuth até o momento.",
+        "badgeCimd": "Verificado (CIMD)",
+        "badgeDcr": "Dinâmico (DCR)",
+        "badgeReadOnly": "Somente Leitura",
+        "badgeReadWrite": "Leitura e Escrita",
+        "lastUsed": "Último uso: {{date}}",
+        "neverUsed": "Nunca utilizado",
+        "createdAt": "Autorizado em: {{date}}",
+        "revoke": "Revogar",
+        "revoking": "Revogando...",
+        "revokeConfirm": "Revogar o acesso de \"{{name}}\"? Os tokens ativos deixarão de funcionar imediatamente.",
+        "revokedSuccess": "Acesso da aplicação revogado.",
+        "revokeError": "Falha ao revogar o acesso da aplicação."
+      },
+      "pats": {
+        "title": "Personal Access Tokens (PATs)",
+        "desc": "Gere tokens Bearer com escopo definido para CLI, scripts ou clientes desktop sem OAuth interativo.",
+        "createBtn": "Novo Token",
+        "empty": "Nenhum Personal Access Token ativo.",
+        "prefixLabel": "Prefixo",
+        "expiresLabel": "Expira em: {{date}}",
+        "neverExpires": "Sem expiração",
+        "expiredBadge": "Expirado",
+        "lastUsed": "Último uso: {{date}}",
+        "neverUsed": "Nunca utilizado",
+        "revoke": "Revogar",
+        "revoking": "Revogando...",
+        "revokeConfirm": "Revogar o token \"{{name}}\"? Clientes usando este token perderão acesso imediatamente.",
+        "revokedSuccess": "Personal access token revogado.",
+        "revokeError": "Falha ao revogar o token.",
+        "modal": {
+          "title": "Criar Personal Access Token",
+          "subtitle": "Tokens autenticam via cabeçalho Authorization: Bearer.",
+          "nameLabel": "Nome do Token",
+          "namePlaceholder": "Ex.: Antigravity Desktop, Gemini CLI",
+          "accessModeLabel": "Nível de Acesso",
+          "readOnlyOption": "Somente Leitura (Recomendado)",
+          "readOnlyOptionDesc": "Consulta perfil, medições, treinos, prontidão, integrações e links sem alterar dados.",
+          "readWriteOption": "Leitura e Escrita",
+          "readWriteOptionDesc": "Permite atualizar metas do perfil, favoritar/excluir medições, sincronizar integrações e gerenciar links.",
+          "customScopesToggle": "Personalizar escopos por domínio",
+          "customScopesHint": "Deixe desmarcado para usar o conjunto padrão selecionado acima.",
+          "expiryLabel": "Expiração",
+          "expiry30": "30 dias",
+          "expiry90": "90 dias",
+          "expiry365": "1 ano",
+          "expiryNever": "Sem expiração",
+          "cancel": "Cancelar",
+          "submit": "Gerar Token",
+          "creating": "Gerando...",
+          "createError": "Não foi possível criar o token."
+        },
+        "revealModal": {
+          "title": "Token Criado",
+          "subtitle": "Copie este Personal Access Token agora.",
+          "warning": "Por segurança, o valor completo do token nunca mais será exibido após fechar esta janela.",
+          "secretLabel": "Bearer Token",
+          "done": "Já Copiei"
+        }
+      },
+      "audit": {
+        "title": "Atividade Recente MCP",
+        "desc": "Registro sanitizado das últimas chamadas de tools, resources e prompts feitas por assistentes de IA.",
+        "refresh": "Atualizar atividade",
+        "empty": "Nenhuma invocação MCP registrada até o momento.",
+        "columns": {
+          "time": "Data/Hora",
+          "client": "Cliente",
+          "primitive": "Primitivo",
+          "mode": "Acesso",
+          "status": "Status",
+          "duration": "Duração"
+        },
+        "statusValues": {
+          "success": "Sucesso",
+          "denied": "Negado",
+          "error": "Erro"
+        },
+        "modeValues": {
+          "read": "Leitura",
+          "write": "Escrita"
+        },
+        "authValues": {
+          "oauth": "OAuth",
+          "pat": "PAT"
+        },
+        "msUnit": "ms",
+        "expand": "Expandir histórico de atividade",
+        "collapse": "Recolher histórico de atividade"
+      }
     },
     "integrations": {
       "title": "Integrações Conectadas",

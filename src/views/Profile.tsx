@@ -30,18 +30,21 @@ import {
   KeyRound,
   Lock,
   Link2,
+  Sparkles,
 } from "lucide-react";
 import OtpInput from "@/components/OtpInput";
 import IntegrationsTab from "./profile/IntegrationsTab";
+import McpTab from "./profile/McpTab";
 
 interface ProfileProps {
   user: User | null;
   onProfileUpdated: (updatedUser: User) => void;
+  enableMcpServer?: boolean;
 }
 
-type ProfileTab = "account" | "personal" | "security" | "privacy" | "integrations";
+type ProfileTab = "account" | "personal" | "security" | "privacy" | "integrations" | "mcp";
 
-export default function Profile({ user, onProfileUpdated }: ProfileProps) {
+export default function Profile({ user, onProfileUpdated, enableMcpServer = true }: ProfileProps) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<ProfileTab>("account");
 
@@ -51,7 +54,7 @@ export default function Profile({ user, onProfileUpdated }: ProfileProps) {
       const tabParam = params.get("tab");
       if (
         tabParam &&
-        ["account", "personal", "security", "privacy", "integrations"].includes(tabParam)
+        ["account", "personal", "security", "privacy", "integrations", "mcp"].includes(tabParam)
       ) {
         setActiveTab(tabParam as ProfileTab);
       }
@@ -424,6 +427,7 @@ export default function Profile({ user, onProfileUpdated }: ProfileProps) {
     { id: "security", label: t("profile.tabs.security"), icon: KeyRound },
     { id: "privacy", label: t("profile.tabs.privacy"), icon: Shield },
     { id: "integrations", label: t("profile.tabs.integrations"), icon: Link2 },
+    { id: "mcp", label: t("profile.tabs.mcp"), icon: Sparkles },
   ];
 
   const handleTabKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -1205,6 +1209,9 @@ export default function Profile({ user, onProfileUpdated }: ProfileProps) {
 
             {/* TAB 5: Connected Integrations */}
             {activeTab === "integrations" && <IntegrationsTab />}
+
+            {/* TAB 6: AI / MCP */}
+            {activeTab === "mcp" && <McpTab enableMcpServer={enableMcpServer} />}
           </div>
         </div>
 
