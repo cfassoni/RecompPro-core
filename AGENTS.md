@@ -29,13 +29,18 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 
 - **Streamlined Release Cutover Workflow**:
   - Once the user initiates a release and confirms the target version (`vX.Y.Z`), do NOT pause for separate micro-approvals on intermediate commits, branch pushes, or tag creation:
-    1. Automatically create `chore/bump-vX.Y.Z` off `preview`, sync `origin/main` ancestry (`git merge --no-edit origin/main`), run `npm run version:bump X.Y.Z`, verify build/tests, commit, push `chore/bump-vX.Y.Z`, and open the PR targeting `preview`. Output the PR URL and wait for the user's manual merge.
+    1. Automatically create `chore/bump-vX.Y.Z` off `preview`, sync `origin/main` ancestry (`git merge --no-edit origin/main`), run `npm run version:bump X.Y.Z`, run `npm run mcp:build-plugins` and `npm run mcp:build-plugins -- --check`, verify build/tests, commit, push `chore/bump-vX.Y.Z`, and open the PR targeting `preview`. Output the PR URL and wait for the user's manual merge.
     2. As soon as the user confirms the bump PR is merged into `preview`, immediately pull `origin/preview` and open the Release PR (`preview` ➔ `main`). Output the PR URL and wait for the user's manual merge.
     3. As soon as the user confirms the Release PR is merged into `main`, immediately create the GitHub Release and tag (`gh release create vX.Y.Z --target main --title "vX.Y.Z"`).
 
 - **Provisional Pre-Release Bumps (`-rc.N`) on `preview`**:
-  - To publish a testable image from `preview` before a final release, use the version `vX.Y.Z-rc.N` (dot before the number, `N` starting at `1` for each target version; e.g. `v0.8.2-rc.1`, `v0.8.2-rc.2`, then final `v0.8.2`).
-  - Bump flow: `chore/bump-vX.Y.Z-rc.N` off `preview` ➔ `npm run version:bump X.Y.Z-rc.N` ➔ verify ➔ PR targeting `preview` (agent-mergeable) ➔ after merge, `gh release create vX.Y.Z-rc.N --target preview --prerelease --title "vX.Y.Z-rc.N"` (title strictly the version code).
+  - **Default Rule for Bumps in `preview`:** Unless the user **explicitly** initiates a production release cutover to `main`, **every** version bump requested during `preview` work (e.g., *"novo bump minor/patch"*, *"bump para testar na preview"*) MUST use a pre-release version `vX.Y.Z-rc.N` (dot before `N`, starting at `1` for each new `X.Y.Z` target — e.g., `0.8.2-rc.1` ➔ new minor `0.9.0-rc.1`, or next fix candidate `0.9.0-rc.2` — NEVER a bare `vX.Y.Z`).
+  - **Branch & Increment Semantics:**
+    - Previous version `X.Y.Z-rc.N` or `X.Y.Z`:
+      - Same cycle / pre-release fix candidate ➔ increment `rc.(N+1)` on the same `X.Y.Z`.
+      - Next patch bump on `preview` ➔ `X.Y.(Z+1)-rc.1` (if currently on `X.Y.Z`), or finalize `X.Y.Z-rc.1` if already staged.
+      - Next minor bump on `preview` ➔ `X.(Y+1).0-rc.1`.
+  - **Full Streamlined Pre-Release Flow:** `chore/bump-vX.Y.Z-rc.N` off `preview` ➔ `npm run version:bump X.Y.Z-rc.N` + `npm run mcp:build-plugins` (`--check`) ➔ verify (`lint`, `test`, `build`) ➔ commit ➔ `git_push` ➔ PR targeting `preview` ➔ agent-merge PR into `preview` via `github-app` MCP ➔ switch to `preview` & `git_pull` ➔ `gh release create vX.Y.Z-rc.N --target preview --prerelease --title "vX.Y.Z-rc.N"` (using `github-app` MCP `gh_run` with `body_flag: "--notes-file"` and `--title` strictly equal to the version code).
   - Publishing the pre-release GitHub Release triggers `release.yml`, which pushes the multi-arch image to GHCR with tags `X.Y.Z-rc.N` and `sha-*`. Pre-releases must **NEVER** move the `latest` tag (guarded by `github.event.release.prerelease`) and never require a PR to `main`.
   - The final release still follows the Streamlined Release Cutover Workflow (`preview` ➔ `main`, human merge, `gh release create vX.Y.Z --target main`).
 
@@ -62,7 +67,8 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 | **Merging feature branch locally into `preview` or `main`** |  **NEVER**      | **Requires explicit written user approval after user testing.**                                                                                                                                   |
 | **Pushing feature branch & Opening PR to `preview`**        |    **YES**            | Allowed autonomously on isolated branches (`feat/*`, `fix/*`, `docs/*`) after passing local verification; always target `preview`.                                                                |
 | **Merging PRs into `preview` (`gh pr merge`)**              | **ON APPROVAL**       | Permitted via `github-app` MCP (`allow_merge_branches: ["preview"]`) immediately after user test/ship approval.                                                                                   |
-| **Release Bump PR, Release PR & Tag (`vX.Y.Z`)**            | **ON RELEASE START**  | Once the user requests a release and confirms `vX.Y.Z`, execute the bump PR (`➔ preview`) and Release PR (`➔ main`), then wait for human merge into `main` before creating the GitHub Release.    |
+| **Pre-Release Bump & Tag (`vX.Y.Z-rc.N` on `preview`)**     | **ON BUMP REQUEST**   | Default for any version bump requested on `preview`. Agent-mergeable into `preview`; followed immediately by `gh release create vX.Y.Z-rc.N --target preview --prerelease`.                       |
+| **Final Release Bump PR, Release PR & Tag (`vX.Y.Z` on `main`)** | **ON MAIN RELEASE** | Only when user explicitly initiates a production release to `main`: execute bump PR (`➔ preview`), Release PR (`➔ main`), wait for human merge into `main`, then create final GitHub Release.     |
 | **Pushing or Merging into `main`**                          |   **NEVER**           | **Human-only.** Strictly performed manually by the user — enforced both as a project rule and by the `github-app` profile policy.                                                                 |
 
 ---
@@ -71,7 +77,7 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 
 - **100% Pure Node.js Toolchain (Zero Python)**:
   - The application runtime and developer tooling are strictly Node.js 22+ and TypeScript.
-  - Version bumping is managed via `npm run version:bump <version>` (updating `VERSION`, `package.json`, and `Version.tsx`).
+  - Version bumping is managed via `npm run version:bump <version>` (updating `VERSION`, `package.json`, `Version.tsx`, and `Version.test.tsx`), immediately followed by `npm run mcp:build-plugins` and `npm run mcp:build-plugins -- --check` to keep `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`, and `plugins/recomp-pro/*` aligned with `VERSION`.
 
 - **Database Migrations (Drizzle ORM)**:
   - Schema changes in `src/db/schema.ts` must include corresponding Drizzle migration scripts generated via `npm run db:generate`.
@@ -103,6 +109,14 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 - **MCP Feature Parity Invariant (`docs/MCP_SERVER_SPEC.md` §5.3 & §7.4)**:
   - New backend domain capabilities must be implemented in `src/lib/services/<domain>Service.ts` first, with `/api/*` Route Handlers acting as thin HTTP adapters, and evaluated/exposed in `src/lib/mcp/modules/<domain>.ts` (registered in `ALL_MCP_MODULES` and verified by `src/lib/mcp/__tests__/registry.test.ts`).
   - Hard-excluded security operations (account deletion, full data wipe, password changes/resets, email changes/verification, third-party integration credential setup/disconnect/webhook rotation, OAuth grant/PAT management) must remain strictly Web-UI-only and never be exposed via MCP tools.
+
+- **MCP OAuth 2.1 & SEP-2640 Wire Conformance Invariants**:
+  - CIMD/DCR and `/oauth/token` must support both public PKCE (`"none"`) and asymmetric RFC 7523 `"private_key_jwt"` clients (e.g., ChatGPT CIMD with `jwks_uri`, optional `client_id` in token form body when `client_assertion` is supplied, SSRF-safe JWKS caching with key-rotation retry, and `jti` replay protection). `getCanonicalOrigin(req)` must preserve `https://` behind reverse proxies sending `Host` + `X-Forwarded-Proto` even when `X-Forwarded-Host` is absent.
+  - SEP-2640 (`io.modelcontextprotocol/skills`) responses must remain schema-compliant with MCP Inspector conformance checks: `skills/list` returns entries with `{ uri: "skill://<slug>/SKILL.md", frontmatter (matching SKILL.md YAML keys 1:1), resources: [{ uri, digest: "sha256:<hex>", size, mimeType }] }`; `skills/get` returns `{ skill }`; `resources/directory/read` returns `{ resources }`.
+
+- **End-User AI Surfaces UX Standard**:
+  - End-user navigation and headings must use human-friendly labels (`"AI Assistants"` / `"Assistentes de IA"` / `"Asistentes de IA"`) rather than protocol acronyms (`"AI / MCP"`).
+  - Keep primary flows centered on plain-language connection steps, official platform docs links, and example prompts; place developer-only artifacts (`.zip` plugin bundles, `mcpServers` JSON snippets, PATs) under collapsed *Advanced Options* disclosures.
 
 - **Modal & Drawer Dismissal Ergonomics**:
   - All dialogs, sheets, modals, and slide-over drawers must support dismissal via backdrop/overlay click and the `Escape` keyboard key (with cleaned-up event listeners in `useEffect`), in addition to explicit close buttons.
