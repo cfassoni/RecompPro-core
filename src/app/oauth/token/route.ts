@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
         redirectUri: body.redirect_uri || "",
         codeVerifier: body.code_verifier || "",
         resource: body.resource || null,
+        clientAssertionType: body.client_assertion_type || null,
+        clientAssertion: body.client_assertion || null,
         canonicalOrigin,
       });
       return NextResponse.json(tokens, { status: 200, headers: TOKEN_HEADERS });
@@ -76,6 +78,8 @@ export async function POST(req: NextRequest) {
         clientId: body.client_id || null,
         scope: body.scope || null,
         resource: body.resource || null,
+        clientAssertionType: body.client_assertion_type || null,
+        clientAssertion: body.client_assertion || null,
         canonicalOrigin,
       });
       return NextResponse.json(tokens, { status: 200, headers: TOKEN_HEADERS });

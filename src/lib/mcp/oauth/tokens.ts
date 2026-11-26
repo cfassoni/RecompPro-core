@@ -14,10 +14,19 @@ import {
 } from "@/lib/mcp/config";
 import {
   isCimdClientId,
+  normalizeInlineJwks,
+  resolveClientAuthMethods,
   resolveCimdClient,
   type CimdDependencies,
+  type JwksDocument,
+  type OAuthTokenEndpointAuthMethod,
   type ResolvedOAuthClient,
 } from "./cimd";
+import {
+  ClientAssertionError,
+  extractClientIdFromAssertion,
+  verifyPrivateKeyJwtAssertion,
+} from "./clientAssertion";
 import { verifyPkceS256 } from "./pkce";
 import { parseRequestedScopes } from "@/lib/mcp/scopes";
 
@@ -81,6 +90,40 @@ export async function resolveOAuthClient(
     redirectUris = [];
   }
 
+  let tokenEndpointAuthMethod: OAuthTokenEndpointAuthMethod = "none";
+  let allowedAuthMethods: OAuthTokenEndpointAuthMethod[] = ["none"];
+  let jwksUri: string | null = null;
+  let jwks: JwksDocument | null = null;
+
+  if (row.metadataJson) {
+    try {
+      const meta = JSON.parse(row.metadataJson) as {
+        token_endpoint_auth_method?: unknown;
+        token_endpoint_auth_methods_supported?: unknown;
+        jwks_uri?: unknown;
+        jwks?: unknown;
+      };
+      if (typeof meta.jwks_uri === "string" && meta.jwks_uri.startsWith("https://")) {
+        jwksUri = meta.jwks_uri;
+      }
+      jwks = normalizeInlineJwks(meta.jwks);
+      const authConfig = resolveClientAuthMethods({
+        tokenEndpointAuthMethod: meta.token_endpoint_auth_method,
+        tokenEndpointAuthMethodsSupported: meta.token_endpoint_auth_methods_supported,
+        jwksUri,
+        jwks,
+        sourceLabel: row.registrationType.toUpperCase(),
+      });
+      tokenEndpointAuthMethod = authConfig.tokenEndpointAuthMethod;
+      allowedAuthMethods = authConfig.allowedAuthMethods;
+    } catch {
+      tokenEndpointAuthMethod = "none";
+      allowedAuthMethods = ["none"];
+      jwksUri = null;
+      jwks = null;
+    }
+  }
+
   return {
     clientId: row.clientId,
     registrationType: row.registrationType as "cimd" | "dcr",
@@ -88,7 +131,66 @@ export async function resolveOAuthClient(
     clientUri: row.clientUri,
     logoUri: row.logoUri,
     redirectUris,
+    tokenEndpointAuthMethod,
+    allowedAuthMethods,
+    jwksUri,
+    jwks,
   };
+}
+
+async function authenticateTokenEndpointClient(params: {
+  bodyClientId?: string | null;
+  fallbackClientId?: string | null;
+  clientAssertionType?: string | null;
+  clientAssertion?: string | null;
+  canonicalOrigin: string;
+  cimdDeps?: CimdDependencies;
+}): Promise<string> {
+  const bodyClientId = params.bodyClientId?.trim() || "";
+  const clientAssertion = params.clientAssertion?.trim() || "";
+  const clientAssertionType = params.clientAssertionType?.trim() || "";
+
+  let assertionClientId: string | null = null;
+  if (clientAssertion) {
+    assertionClientId = extractClientIdFromAssertion(clientAssertion);
+    if (!assertionClientId) {
+      throw new OAuthTokenError("invalid_client", "Invalid client_assertion JWT", 401);
+    }
+    if (bodyClientId && bodyClientId !== assertionClientId) {
+      throw new OAuthTokenError(
+        "invalid_client",
+        "client_id does not match client_assertion subject",
+        401
+      );
+    }
+  }
+
+  const effectiveClientId = assertionClientId || bodyClientId || params.fallbackClientId?.trim() || "";
+  const client = await resolveOAuthClient(effectiveClientId, params.cimdDeps);
+
+  if (clientAssertion || clientAssertionType) {
+    try {
+      await verifyPrivateKeyJwtAssertion({
+        client,
+        clientAssertionType: clientAssertionType || null,
+        clientAssertion: clientAssertion || null,
+        expectedAudiences: [`${params.canonicalOrigin}/oauth/token`, params.canonicalOrigin],
+        deps: params.cimdDeps,
+      });
+    } catch (err) {
+      const message =
+        err instanceof ClientAssertionError ? err.message : "Invalid client_assertion";
+      throw new OAuthTokenError("invalid_client", message, 401);
+    }
+  } else if (!client.allowedAuthMethods.includes("none")) {
+    throw new OAuthTokenError(
+      "invalid_client",
+      "Client authentication via private_key_jwt is required",
+      401
+    );
+  }
+
+  return effectiveClientId;
 }
 
 /** Normalizes and validates an RFC 8707 `resource` indicator against the canonical server origin. */
@@ -217,20 +319,31 @@ async function issueTokenPair(params: {
 
 export interface ExchangeAuthCodeInput {
   code: string;
-  clientId: string;
+  clientId?: string | null;
   redirectUri: string;
   codeVerifier: string;
   resource?: string | null;
+  clientAssertionType?: string | null;
+  clientAssertion?: string | null;
   canonicalOrigin: string;
+  cimdDeps?: CimdDependencies;
 }
 
 /** Exchanges a PKCE S256 authorization code for an access + rotating refresh token pair. */
 export async function exchangeAuthorizationCode(
   input: ExchangeAuthCodeInput
 ): Promise<IssuedTokenPair> {
-  if (!input.code || !input.clientId || !input.redirectUri || !input.codeVerifier) {
+  if (!input.code || (!input.clientId && !input.clientAssertion) || !input.redirectUri || !input.codeVerifier) {
     throw new OAuthTokenError("invalid_request", "Missing required token exchange parameters");
   }
+
+  const effectiveClientId = await authenticateTokenEndpointClient({
+    bodyClientId: input.clientId,
+    clientAssertionType: input.clientAssertionType,
+    clientAssertion: input.clientAssertion,
+    canonicalOrigin: input.canonicalOrigin,
+    cimdDeps: input.cimdDeps,
+  });
 
   const codeHash = sha256Hex(input.code);
   const authCode = await db.query.mcpOauthAuthCodes.findFirst({
@@ -250,7 +363,7 @@ export async function exchangeAuthorizationCode(
     throw new OAuthTokenError("invalid_grant", "Authorization code has expired");
   }
 
-  if (authCode.clientId !== input.clientId) {
+  if (authCode.clientId !== effectiveClientId) {
     throw new OAuthTokenError("invalid_grant", "client_id mismatch");
   }
 
@@ -340,7 +453,10 @@ export interface RotateRefreshTokenInput {
   clientId?: string | null;
   scope?: string | null;
   resource?: string | null;
+  clientAssertionType?: string | null;
+  clientAssertion?: string | null;
   canonicalOrigin: string;
+  cimdDeps?: CimdDependencies;
 }
 
 /**
@@ -389,7 +505,16 @@ export async function rotateRefreshToken(
     throw new OAuthTokenError("invalid_grant", "Refresh token has expired");
   }
 
-  if (input.clientId && existing.clientId !== input.clientId) {
+  const effectiveClientId = await authenticateTokenEndpointClient({
+    bodyClientId: input.clientId,
+    fallbackClientId: existing.clientId,
+    clientAssertionType: input.clientAssertionType,
+    clientAssertion: input.clientAssertion,
+    canonicalOrigin: input.canonicalOrigin,
+    cimdDeps: input.cimdDeps,
+  });
+
+  if (existing.clientId !== effectiveClientId) {
     throw new OAuthTokenError("invalid_grant", "client_id mismatch");
   }
 

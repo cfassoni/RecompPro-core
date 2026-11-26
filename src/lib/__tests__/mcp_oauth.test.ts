@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
@@ -6,6 +7,7 @@ import { db } from "@/db/client";
 import { mcpOauthGrants, mcpOauthTokens, users } from "@/db/schema";
 import { ensureTablesExist } from "@/db/initDb";
 import { createAccessToken, hashPassword } from "@/lib/auth";
+import { getCanonicalOrigin } from "@/lib/mcp/config";
 import { verifyPkceS256 } from "@/lib/mcp/oauth/pkce";
 import {
   clearCimdCache,
@@ -13,10 +15,18 @@ import {
   isCimdClientId,
   resolveCimdClient,
 } from "@/lib/mcp/oauth/cimd";
+import {
+  clearAssertionReplayCache,
+  JWT_BEARER_CLIENT_ASSERTION_TYPE,
+} from "@/lib/mcp/oauth/clientAssertion";
 import { resetDcrRateLimits } from "@/lib/mcp/oauth/dcr";
 import {
+  createAuthorizationCode,
   createPersonalAccessToken,
+  exchangeAuthorizationCode,
+  OAuthTokenError,
   revokePersonalAccessToken,
+  rotateRefreshToken,
 } from "@/lib/mcp/oauth/tokens";
 import {
   hasScope,
@@ -66,6 +76,7 @@ describe("MCP OAuth 2.1, PKCE, CIMD, DCR, Scopes & PAT", () => {
 
   beforeEach(() => {
     clearCimdCache();
+    clearAssertionReplayCache();
     resetDcrRateLimits();
   });
 
@@ -385,5 +396,256 @@ describe("MCP OAuth 2.1, PKCE, CIMD, DCR, Scopes & PAT", () => {
       })
     );
     expect(expiredAuth).toBeNull();
+  });
+
+  it("supports ChatGPT-style CIMD private_key_jwt with JWKS verification, replay protection, and refresh rotation", async () => {
+    const { publicKey, privateKey } = await generateKeyPair("RS256");
+    const publicJwk = await exportJWK(publicKey);
+    publicJwk.kid = "chatgpt-key-1";
+    publicJwk.alg = "RS256";
+    publicJwk.use = "sig";
+
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const clientId = `https://chatgpt.example.com/oauth/${uniqueSuffix}/client.json`;
+    const jwksUri = "https://chatgpt.example.com/oauth/jwks.json";
+    const redirectUri = `https://chatgpt.example.com/connector/oauth/${uniqueSuffix}`;
+    const canonicalOrigin = "https://recomp-dev.cf3d.eng.br";
+
+    const cimdDeps = {
+      lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+      fetchFn: async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url === clientId) {
+          return new Response(
+            JSON.stringify({
+              client_id: clientId,
+              client_name: "ChatGPT",
+              client_uri: "https://chatgpt.com/",
+              redirect_uris: [redirectUri],
+              token_endpoint_auth_method: "private_key_jwt",
+              token_endpoint_auth_signing_alg: "RS256",
+              jwks_uri: jwksUri,
+            }),
+            { status: 200 }
+          );
+        }
+        if (url === jwksUri) {
+          return new Response(JSON.stringify({ keys: [publicJwk] }), { status: 200 });
+        }
+        return new Response("Not Found", { status: 404 });
+      },
+    };
+
+    const resolved = await resolveCimdClient(clientId, cimdDeps);
+    expect(resolved.clientName).toBe("ChatGPT");
+    expect(resolved.tokenEndpointAuthMethod).toBe("private_key_jwt");
+    expect(resolved.allowedAuthMethods).toEqual(["private_key_jwt"]);
+    expect(resolved.jwksUri).toBe(jwksUri);
+
+    const { verifier, challenge } = createPkcePair();
+    const authCode = await createAuthorizationCode({
+      clientId,
+      userId,
+      redirectUri,
+      scopes: ["recomp:read", "recomp:write"],
+      resource: `${canonicalOrigin}/mcp`,
+      codeChallenge: challenge,
+      codeChallengeMethod: "S256",
+    });
+
+    // Missing client_assertion on private_key_jwt-only client must be rejected (401 invalid_client)
+    await expect(
+      exchangeAuthorizationCode({
+        code: authCode,
+        clientId,
+        redirectUri,
+        codeVerifier: verifier,
+        resource: `${canonicalOrigin}/mcp`,
+        canonicalOrigin,
+        cimdDeps,
+      })
+    ).rejects.toMatchObject({ code: "invalid_client", status: 401 });
+
+    // Signed RFC 7523 client_assertion WITHOUT client_id in form body must succeed
+    const signAssertion = async (jti: string) =>
+      new SignJWT({})
+        .setProtectedHeader({ alg: "RS256", kid: "chatgpt-key-1" })
+        .setIssuer(clientId)
+        .setSubject(clientId)
+        .setAudience(`${canonicalOrigin}/oauth/token`)
+        .setJti(jti)
+        .setIssuedAt()
+        .setExpirationTime("2m")
+        .sign(privateKey);
+
+    const firstAssertion = await signAssertion(`jti-1-${uniqueSuffix}`);
+    const issued = await exchangeAuthorizationCode({
+      code: authCode,
+      clientId: "",
+      redirectUri,
+      codeVerifier: verifier,
+      resource: `${canonicalOrigin}/mcp`,
+      clientAssertionType: JWT_BEARER_CLIENT_ASSERTION_TYPE,
+      clientAssertion: firstAssertion,
+      canonicalOrigin,
+      cimdDeps,
+    });
+    expect(issued.access_token).toMatch(/^recomp_at_/);
+    expect(issued.refresh_token).toMatch(/^recomp_rt_/);
+
+    // Refresh without client_assertion must fail
+    await expect(
+      rotateRefreshToken({
+        refreshToken: issued.refresh_token,
+        canonicalOrigin,
+        cimdDeps,
+      })
+    ).rejects.toMatchObject({ code: "invalid_client", status: 401 });
+
+    // Replaying the exact same jti must fail
+    await expect(
+      rotateRefreshToken({
+        refreshToken: issued.refresh_token,
+        clientAssertionType: JWT_BEARER_CLIENT_ASSERTION_TYPE,
+        clientAssertion: firstAssertion,
+        canonicalOrigin,
+        cimdDeps,
+      })
+    ).rejects.toBeInstanceOf(OAuthTokenError);
+
+    // Refresh with a fresh jti succeeds
+    const secondAssertion = await signAssertion(`jti-2-${uniqueSuffix}`);
+    const rotated = await rotateRefreshToken({
+      refreshToken: issued.refresh_token,
+      clientAssertionType: JWT_BEARER_CLIENT_ASSERTION_TYPE,
+      clientAssertion: secondAssertion,
+      canonicalOrigin,
+      cimdDeps,
+    });
+    expect(rotated.access_token).toMatch(/^recomp_at_/);
+    expect(rotated.refresh_token).not.toBe(issued.refresh_token);
+  });
+
+  it("allows CIMD clients declaring token_endpoint_auth_methods_supported=['none','private_key_jwt'] to fall back to public PKCE", async () => {
+    const clientId = `https://dual-client.example.com/oauth-${Date.now()}.json`;
+    const redirectUri = "https://dual-client.example.com/cb";
+    const resolved = await resolveCimdClient(clientId, {
+      lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+      fetchFn: async () =>
+        new Response(
+          JSON.stringify({
+            client_id: clientId,
+            client_name: "Dual Client",
+            redirect_uris: [redirectUri],
+            token_endpoint_auth_method: "private_key_jwt",
+            token_endpoint_auth_methods_supported: ["none", "private_key_jwt"],
+          }),
+          { status: 200 }
+        ),
+    });
+
+    expect(resolved.tokenEndpointAuthMethod).toBe("none");
+    expect(resolved.allowedAuthMethods).toContain("none");
+  });
+
+  it("rejects CIMD private_key_jwt clients with SSRF-blocked jwks_uri", async () => {
+    const clientId = `https://ssrf-jwks.example.com/oauth-${Date.now()}.json`;
+    await expect(
+      resolveCimdClient(clientId, {
+        lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+        fetchFn: async () =>
+          new Response(
+            JSON.stringify({
+              client_id: clientId,
+              redirect_uris: ["https://ssrf-jwks.example.com/cb"],
+              token_endpoint_auth_method: "private_key_jwt",
+              jwks_uri: "https://127.0.0.1/jwks.json",
+            }),
+            { status: 200 }
+          ),
+      })
+    ).rejects.toThrow(/blocked/i);
+  });
+
+  it("supports DCR private_key_jwt with inline JWKS via HTTP tokenHandler", async () => {
+    const { publicKey, privateKey } = await generateKeyPair("ES256");
+    const publicJwk = await exportJWK(publicKey);
+    publicJwk.kid = "dcr-ec-1";
+    publicJwk.alg = "ES256";
+    publicJwk.use = "sig";
+
+    const redirectUri = "https://dcr-client.example.com/callback";
+    const dcrRes = await registerDcrHandler(
+      new NextRequest("https://recomp-dev.cf3d.eng.br/oauth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: "DCR Asymmetric Client",
+          redirect_uris: [redirectUri],
+          token_endpoint_auth_method: "private_key_jwt",
+          jwks: { keys: [publicJwk] },
+        }),
+      })
+    );
+    expect(dcrRes.status).toBe(201);
+    const dcrData = (await dcrRes.json()) as {
+      client_id: string;
+      token_endpoint_auth_method: string;
+    };
+    expect(dcrData.token_endpoint_auth_method).toBe("private_key_jwt");
+
+    const { verifier, challenge } = createPkcePair();
+    const authCode = await createAuthorizationCode({
+      clientId: dcrData.client_id,
+      userId,
+      redirectUri,
+      scopes: ["recomp:read"],
+      resource: "https://recomp-dev.cf3d.eng.br/mcp",
+      codeChallenge: challenge,
+      codeChallengeMethod: "S256",
+    });
+
+    const assertion = await new SignJWT({})
+      .setProtectedHeader({ alg: "ES256", kid: "dcr-ec-1" })
+      .setIssuer(dcrData.client_id)
+      .setSubject(dcrData.client_id)
+      .setAudience("https://recomp-dev.cf3d.eng.br/oauth/token")
+      .setJti(`dcr-jti-${Date.now()}`)
+      .setIssuedAt()
+      .setExpirationTime("2m")
+      .sign(privateKey);
+
+    const tokenRes = await tokenHandler(
+      new NextRequest("http://localhost:3000/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          host: "recomp-dev.cf3d.eng.br",
+          "x-forwarded-proto": "https",
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code: authCode,
+          redirect_uri: redirectUri,
+          code_verifier: verifier,
+          client_assertion_type: JWT_BEARER_CLIENT_ASSERTION_TYPE,
+          client_assertion: assertion,
+          resource: "https://recomp-dev.cf3d.eng.br/mcp",
+        }).toString(),
+      })
+    );
+    expect(tokenRes.status).toBe(200);
+    const tokenJson = (await tokenRes.json()) as { access_token: string };
+    expect(tokenJson.access_token).toMatch(/^recomp_at_/);
+  });
+
+  it("preserves HTTPS reverse-proxy origin from host + x-forwarded-proto when x-forwarded-host is absent", () => {
+    const req = new Request("http://localhost:3000/oauth/token", {
+      headers: {
+        host: "recomp-dev.cf3d.eng.br",
+        "x-forwarded-proto": "https",
+      },
+    });
+    expect(getCanonicalOrigin(req)).toBe("https://recomp-dev.cf3d.eng.br");
   });
 });
