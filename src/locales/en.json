@@ -459,7 +459,132 @@
       "personal": "Personal Details",
       "security": "Security",
       "privacy": "Privacy",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "mcp": "AI / MCP"
+    },
+    "mcp": {
+      "title": "AI Assistants & MCP Server",
+      "subtitle": "Connect Claude, ChatGPT, Gemini, Antigravity, and developer IDEs directly to your Recomp Pro health data.",
+      "disabledTitle": "MCP Server Disabled",
+      "disabledDesc": "The embedded MCP server is disabled on this instance (ENABLE_MCP_SERVER=false).",
+      "loadError": "Could not load MCP connection details.",
+      "copied": "Copied",
+      "copy": "Copy",
+      "endpointCard": {
+        "title": "Streamable HTTP Endpoint",
+        "desc": "Use this URL in any MCP-compatible AI client. Remote cloud clients require a public HTTPS origin.",
+        "label": "MCP Server URL",
+        "oauthNote": "Supports OAuth 2.1 (CIMD/DCR + PKCE S256) and Personal Access Tokens via Authorization: Bearer."
+      },
+      "quickConnect": {
+        "title": "Quick-Connect Guides",
+        "desc": "Select your AI client for setup instructions and ready-to-copy configuration snippets.",
+        "clients": {
+          "claude": "Claude",
+          "chatgpt": "ChatGPT",
+          "gemini": "Gemini",
+          "ide": "Antigravity / IDE"
+        },
+        "instructions": {
+          "claude": "In Claude Web (Settings → Connectors → Add custom connector) or Claude Desktop, paste your MCP Server URL above and complete OAuth sign-in, or use the mcp_servers snippet below.",
+          "chatgpt": "In ChatGPT (Settings → Apps & Connectors → Developer Mode → Create), paste your HTTPS MCP Server URL with OAuth 2.1 authentication.",
+          "gemini": "For Gemini CLI, add the streamable HTTP server to ~/.gemini/settings.json using OAuth or a Personal Access Token.",
+          "ide": "In Antigravity, Cursor, or VS Code, add the server entry to your MCP configuration file using OAuth or a Bearer Personal Access Token."
+        }
+      },
+      "grants": {
+        "title": "Connected AI Applications",
+        "desc": "OAuth 2.1 clients you have authorized to access your account.",
+        "empty": "No AI applications connected via OAuth yet.",
+        "badgeCimd": "Verified (CIMD)",
+        "badgeDcr": "Dynamic (DCR)",
+        "badgeReadOnly": "Read-Only",
+        "badgeReadWrite": "Read & Write",
+        "lastUsed": "Last used: {{date}}",
+        "neverUsed": "Never used",
+        "createdAt": "Authorized: {{date}}",
+        "revoke": "Revoke",
+        "revoking": "Revoking...",
+        "revokeConfirm": "Revoke access for \"{{name}}\"? Active tokens will stop working immediately.",
+        "revokedSuccess": "Application access revoked.",
+        "revokeError": "Failed to revoke application access."
+      },
+      "pats": {
+        "title": "Personal Access Tokens (PATs)",
+        "desc": "Generate scoped Bearer tokens for CLI tools, scripts, or desktop clients without interactive OAuth.",
+        "createBtn": "New Token",
+        "empty": "No active Personal Access Tokens.",
+        "prefixLabel": "Prefix",
+        "expiresLabel": "Expires: {{date}}",
+        "neverExpires": "No expiration",
+        "expiredBadge": "Expired",
+        "lastUsed": "Last used: {{date}}",
+        "neverUsed": "Never used",
+        "revoke": "Revoke",
+        "revoking": "Revoking...",
+        "revokeConfirm": "Revoke token \"{{name}}\"? Clients using it will immediately lose access.",
+        "revokedSuccess": "Personal access token revoked.",
+        "revokeError": "Failed to revoke token.",
+        "modal": {
+          "title": "Create Personal Access Token",
+          "subtitle": "Tokens authenticate via the Authorization: Bearer header.",
+          "nameLabel": "Token Label",
+          "namePlaceholder": "e.g., Antigravity Desktop, Gemini CLI",
+          "accessModeLabel": "Access Level",
+          "readOnlyOption": "Read-Only (Recommended)",
+          "readOnlyOptionDesc": "Inspect profile, scans, workouts, readiness, integrations, and shared links without modifying data.",
+          "readWriteOption": "Read & Write",
+          "readWriteOptionDesc": "Allows updating profile targets, starring/deleting scans, triggering syncs, and managing shared links.",
+          "customScopesToggle": "Customize domain scopes",
+          "customScopesHint": "Leave unchecked to use the standard preset scopes above.",
+          "expiryLabel": "Expiration",
+          "expiry30": "30 days",
+          "expiry90": "90 days",
+          "expiry365": "1 year",
+          "expiryNever": "No expiration",
+          "cancel": "Cancel",
+          "submit": "Generate Token",
+          "creating": "Generating...",
+          "createError": "Could not create token."
+        },
+        "revealModal": {
+          "title": "Token Created",
+          "subtitle": "Copy this Personal Access Token now.",
+          "warning": "For your security, the full token value will never be displayed again after closing this window.",
+          "secretLabel": "Bearer Token",
+          "done": "I've Copied It"
+        }
+      },
+      "audit": {
+        "title": "Recent MCP Activity",
+        "desc": "Sanitized log of recent tool, resource, and prompt calls from AI assistants.",
+        "refresh": "Refresh activity",
+        "empty": "No MCP invocations recorded yet.",
+        "columns": {
+          "time": "Timestamp",
+          "client": "Client",
+          "primitive": "Primitive",
+          "mode": "Access",
+          "status": "Status",
+          "duration": "Duration"
+        },
+        "statusValues": {
+          "success": "Success",
+          "denied": "Denied",
+          "error": "Error"
+        },
+        "modeValues": {
+          "read": "Read",
+          "write": "Write"
+        },
+        "authValues": {
+          "oauth": "OAuth",
+          "pat": "PAT"
+        },
+        "msUnit": "ms",
+        "expand": "Expand activity log",
+        "collapse": "Collapse activity log"
+      }
     },
     "integrations": {
       "title": "Connected Integrations",

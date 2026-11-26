@@ -43,6 +43,12 @@ vi.mock("@/lib/api", () => ({
     deleteAccount: vi.fn(),
     getMe: vi.fn(),
     getIntegrations: vi.fn().mockResolvedValue([]),
+    getMcpOverview: vi.fn().mockResolvedValue({
+      endpointUrl: "http://localhost:3000/mcp",
+      grants: [],
+      tokens: [],
+      auditLogs: [],
+    }),
   },
 }));
 
@@ -92,6 +98,9 @@ describe("Profile Tabbed Navigation and Functionality", () => {
 
     const integrationsTabs = screen.getAllByRole("tab", { name: /Integrations/i });
     expect(integrationsTabs.length).toBeGreaterThanOrEqual(1);
+
+    const mcpTabs = screen.getAllByRole("tab", { name: /AI \/ MCP/i });
+    expect(mcpTabs.length).toBeGreaterThanOrEqual(1);
 
     // Default active panel is Account Information
     expect(screen.getByRole("tabpanel", { name: /Account Information/i })).toBeInTheDocument();
@@ -246,6 +255,19 @@ describe("Profile Tabbed Navigation and Functionality", () => {
     await waitFor(() => {
       expect(screen.getByText("Fitdays Cloud")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Connect & Verify" })).toBeInTheDocument();
+    });
+  });
+
+  it("switches to AI / MCP tab and renders MCP management panel", async () => {
+    render(<Profile user={mockUser} onProfileUpdated={mockOnProfileUpdated} />);
+
+    const mcpTab = screen.getAllByRole("tab", { name: /AI \/ MCP/i })[0];
+    fireEvent.click(mcpTab);
+
+    expect(screen.getByRole("tabpanel", { name: /AI \/ MCP/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("http://localhost:3000/mcp")).toBeInTheDocument();
     });
   });
 });

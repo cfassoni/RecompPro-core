@@ -320,6 +320,61 @@ export interface WorkoutStatsResponse {
   calendarDays: Record<string, WorkoutCalendarItem[]>;
 }
 
+export interface McpGrantItem {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientUri: string | null;
+  registrationType: "cimd" | "dcr";
+  scopes: string[];
+  readOnly: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface McpPatItem {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  scopes: string[];
+  readOnly: boolean;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  isExpired: boolean;
+  createdAt: string;
+}
+
+export interface McpAuditLogItem {
+  id: number;
+  authMethod: "oauth" | "pat";
+  clientLabel: string;
+  primitiveType: "tool" | "resource" | "prompt";
+  primitiveName: string;
+  accessMode: "read" | "write";
+  status: "success" | "denied" | "error";
+  errorCode: string | null;
+  durationMs: number;
+  createdAt: string;
+}
+
+export interface McpOverviewResponse {
+  endpointUrl: string;
+  grants: McpGrantItem[];
+  tokens: McpPatItem[];
+  auditLogs: McpAuditLogItem[];
+}
+
+export interface CreatedMcpPatResponse {
+  id: string;
+  name: string;
+  token: string;
+  tokenPrefix: string;
+  scopes: string[];
+  readOnly: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface WeightHistoryPoint {
   date: string;
   weight: number;
@@ -1013,6 +1068,39 @@ export const api = {
   async getWorkoutProgressions(period: "all" | "1m" | "3m" | "6m" | "1y" = "1m"): Promise<WorkoutProgressionsResponse> {
     return apiFetch<WorkoutProgressionsResponse>(`/api/workouts/progression?period=${period}`, {
       method: "GET",
+    });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Embedded MCP Server Management (Web-UI-Only)
+  // ---------------------------------------------------------------------------
+  async getMcpOverview(): Promise<McpOverviewResponse> {
+    return apiFetch<McpOverviewResponse>("/api/mcp/overview", {
+      method: "GET",
+    });
+  },
+
+  async revokeMcpGrant(id: string): Promise<{ success: boolean; id: string }> {
+    return apiFetch<{ success: boolean; id: string }>(`/api/mcp/grants/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  },
+
+  async createMcpToken(input: {
+    name: string;
+    accessMode?: "read_only" | "read_write";
+    scopes?: string[];
+    expiresInDays?: number | null;
+  }): Promise<CreatedMcpPatResponse> {
+    return apiFetch<CreatedMcpPatResponse>("/api/mcp/tokens", {
+      method: "POST",
+      json: input,
+    });
+  },
+
+  async revokeMcpToken(id: string): Promise<{ success: boolean; id: string }> {
+    return apiFetch<{ success: boolean; id: string }>(`/api/mcp/tokens/${encodeURIComponent(id)}`, {
+      method: "DELETE",
     });
   },
 };
