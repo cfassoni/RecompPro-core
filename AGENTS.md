@@ -39,9 +39,14 @@ feat/* | fix/* | docs/* (Isolated feature branches)
   - Publishing the pre-release GitHub Release triggers `release.yml`, which pushes the multi-arch image to GHCR with tags `X.Y.Z-rc.N` and `sha-*`. Pre-releases must **NEVER** move the `latest` tag (guarded by `github.event.release.prerelease`) and never require a PR to `main`.
   - The final release still follows the Streamlined Release Cutover Workflow (`preview` ➔ `main`, human merge, `gh release create vX.Y.Z --target main`).
 
+- **Streamlined Post-Approval Feature Delivery Flow**:
+  - Once the user confirms local tests passed and approves shipping/proceeding (e.g., `"testado, commit, PR, merge e prossiga"`), do NOT pause between opening the PR and merging into `preview`:
+    1. Commit on the feature branch, push via `github-app` MCP (`git_push`), open the PR targeting `preview` (`gh pr create --base preview`), and immediately merge it into `preview` via `github-app` MCP (`gh pr merge <number> --merge`, permitted by `allow_merge_branches: ["preview"]`).
+    2. Switch to local `preview`, pull `origin/preview` via `git_pull`, create the next `feat/*` branch off `preview`, and proceed immediately with the next milestone.
+
 - **Zero-Polling on Remote CI/CD & GitHub Procedures (Token Conservation)**:
   - Do NOT poll or loop checking status of GitHub Actions workflows, CI runs, PR checks, or release image builds.
-  - Once a remote action (`gh pr create`, `gh release create`) is executed, output the relevant GitHub URL to the user and immediately end the turn. The user will monitor remote status asynchronously and return to the agent if any follow-up is needed.
+  - Once a remote action requiring asynchronous human review/merge (`gh pr create` for `main` release PRs or unapproved PRs, `gh release create`) is executed, output the relevant GitHub URL to the user and immediately end the turn. The user will monitor remote status asynchronously and return to the agent if any follow-up is needed.
 
 ---
 
@@ -56,7 +61,7 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 | **Committing locally on feature branch**                    |   **YES**       | Use Conventional Commits (`feat:`, `fix:`, `chore:`).                                                                                                                                             |
 | **Merging feature branch locally into `preview` or `main`** |  **NEVER**      | **Requires explicit written user approval after user testing.**                                                                                                                                   |
 | **Pushing feature branch & Opening PR to `preview`**        |    **YES**            | Allowed autonomously on isolated branches (`feat/*`, `fix/*`, `docs/*`) after passing local verification; always target `preview`.                                                                |
-| **Merging PRs into `preview` (`gh pr merge`)**              | **ON APPROVAL**       | Permitted via `github-app` MCP (`allow_merge_branches: ["preview"]`) after user confirmation.                                                                                                     |
+| **Merging PRs into `preview` (`gh pr merge`)**              | **ON APPROVAL**       | Permitted via `github-app` MCP (`allow_merge_branches: ["preview"]`) immediately after user test/ship approval.                                                                                   |
 | **Release Bump PR, Release PR & Tag (`vX.Y.Z`)**            | **ON RELEASE START**  | Once the user requests a release and confirms `vX.Y.Z`, execute the bump PR (`➔ preview`) and Release PR (`➔ main`), then wait for human merge into `main` before creating the GitHub Release.    |
 | **Pushing or Merging into `main`**                          |   **NEVER**           | **Human-only.** Strictly performed manually by the user — enforced both as a project rule and by the `github-app` profile policy.                                                                 |
 
@@ -94,6 +99,10 @@ feat/* | fix/* | docs/* (Isolated feature branches)
 - **GitHub App Authentication**:
   - Use the `github-app` plugin / MCP server (profile `recomp-pro-core`) and its `github-app` skill for all authenticated remote Git and GitHub operations.
   - Fall back to the `github-app` CLI only in environments without MCP support; never rely on personal SSH keys or global host credentials.
+
+- **MCP Feature Parity Invariant (`docs/MCP_SERVER_SPEC.md` §5.3 & §7.4)**:
+  - New backend domain capabilities must be implemented in `src/lib/services/<domain>Service.ts` first, with `/api/*` Route Handlers acting as thin HTTP adapters, and evaluated/exposed in `src/lib/mcp/modules/<domain>.ts` (registered in `ALL_MCP_MODULES` and verified by `src/lib/mcp/__tests__/registry.test.ts`).
+  - Hard-excluded security operations (account deletion, full data wipe, password changes/resets, email changes/verification, third-party integration credential setup/disconnect/webhook rotation, OAuth grant/PAT management) must remain strictly Web-UI-only and never be exposed via MCP tools.
 
 - **Modal & Drawer Dismissal Ergonomics**:
   - All dialogs, sheets, modals, and slide-over drawers must support dismissal via backdrop/overlay click and the `Escape` keyboard key (with cleaned-up event listeners in `useEffect`), in addition to explicit close buttons.

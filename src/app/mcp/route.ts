@@ -9,7 +9,8 @@ import {
   mcpDisabledResponse,
   withMcpCors,
 } from "@/lib/mcp/cors";
-import { createRecompMcpServer } from "@/lib/mcp/server";
+import { ALL_MCP_MODULES, createRecompMcpServer } from "@/lib/mcp/server";
+import { recordDeniedOutOfScopeCalls } from "@/lib/mcp/registry";
 
 function unauthorizedMcpResponse(req: NextRequest): NextResponse {
   return NextResponse.json(
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest) {
   const auth = await authenticateMcpRequest(req);
   if (!auth) {
     return unauthorizedMcpResponse(req);
+  }
+
+  const rpcBody = await req
+    .clone()
+    .json()
+    .catch(() => null);
+  if (rpcBody !== null) {
+    await recordDeniedOutOfScopeCalls(rpcBody, auth, ALL_MCP_MODULES);
   }
 
   const origin = getCanonicalOrigin(req);

@@ -8,7 +8,7 @@ export default defineConfig({
       {
         test: {
           name: "node",
-          include: ["src/lib/__tests__/**/*.test.ts"],
+          include: ["src/lib/**/__tests__/**/*.test.ts"],
           environment: "node",
           globals: true,
         },

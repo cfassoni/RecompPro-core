@@ -461,7 +461,7 @@ describe("MCP Phase 2: Read Tools, Resources, Prompts & Scope Isolation", () => 
       arguments: {},
     });
     const about = parseToolJson(aboutRes.payload);
-    expect((about.capabilities as { phase: number }).phase).toBe(2);
+    expect((about.capabilities as { phase: number }).phase).toBeGreaterThanOrEqual(2);
 
     // 2. get_user_profile (no internal profile_image_path)
     const profileRes = await rpc(fullReadToken, 11, "tools/call", {

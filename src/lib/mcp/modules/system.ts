@@ -35,7 +35,7 @@ export const systemModule: McpModule = {
             scopes: ctx.auth.scopes,
           },
           capabilities: {
-            phase: 2,
+            phase: 3,
             modules: catalog.modules,
             tools: catalog.tools,
             resources: catalog.resources,

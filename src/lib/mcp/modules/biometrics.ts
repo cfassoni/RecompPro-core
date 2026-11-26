@@ -2,10 +2,12 @@ import { z } from "zod";
 import type { McpModule } from "@/lib/mcp/registry";
 import {
   type BiometricsPeriod,
+  deleteBiometricRecords,
   getBiometricRecordById,
   getBiometricsSummary,
   getLatestBiometricRecord,
   queryBiometricRecords,
+  toggleBiometricRecordStar,
 } from "@/lib/services/biometricsService";
 
 const PERIOD_ENUM = z.enum(["all", "1m", "3m", "6m", "1y"]);
@@ -107,6 +109,52 @@ export const biometricsModule: McpModule = {
       },
       handler: async (args: { record_id: number }, ctx) =>
         getBiometricRecordById(ctx.auth.userId, args.record_id),
+    },
+    {
+      name: "toggle_biometric_record_star",
+      title: "Toggle Biometric Record Star",
+      description:
+        "Sets or toggles the starred status on a biometric scan and automatically refreshes active auto_share_starred shared links.",
+      requiredScope: "biometrics:write",
+      accessMode: "write",
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        record_id: z.number().int().positive().describe("Biometric record ID."),
+        starred: z
+          .boolean()
+          .optional()
+          .describe("Explicit boolean value; omit to toggle the current starred state."),
+      },
+      handler: async (args: { record_id: number; starred?: boolean }, ctx) =>
+        toggleBiometricRecordStar(ctx.auth.userId, args.record_id, args.starred),
+    },
+    {
+      name: "delete_biometric_records",
+      title: "Delete Biometric Records",
+      description:
+        "Permanently deletes specific biometric scans owned by the user. Ask for explicit user confirmation before invoking.",
+      requiredScope: "biometrics:write",
+      accessMode: "write",
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        record_ids: z
+          .array(z.number().int().positive())
+          .min(1)
+          .max(100)
+          .describe("List of biometric record IDs to permanently delete."),
+      },
+      handler: async (args: { record_ids: number[] }, ctx) =>
+        deleteBiometricRecords(ctx.auth.userId, args.record_ids),
     },
   ],
   resources: [
