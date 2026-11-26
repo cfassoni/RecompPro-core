@@ -1,5 +1,9 @@
+import { z } from "zod";
 import type { McpModule } from "@/lib/mcp/registry";
-import { getUserProfileForMcp } from "@/lib/services/profileService";
+import {
+  getUserProfileForMcp,
+  updateUserProfile,
+} from "@/lib/services/profileService";
 
 export const profileModule: McpModule = {
   id: "profile",
@@ -18,6 +22,74 @@ export const profileModule: McpModule = {
         openWorldHint: false,
       },
       handler: async (_args, ctx) => getUserProfileForMcp(ctx.auth.userId),
+    },
+    {
+      name: "update_user_profile",
+      title: "Update User Profile",
+      description:
+        "Updates user profile fields (display_name, gender, birthday, height_cm, target_weight_kg, preferred_language). Email changes are excluded for security.",
+      requiredScope: "profile:write",
+      accessMode: "write",
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        display_name: z.string().nullable().optional().describe("Display name."),
+        gender: z.string().nullable().optional().describe("Biological sex / gender."),
+        birthday: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Birth date in YYYY-MM-DD format."),
+        height_cm: z
+          .number()
+          .positive()
+          .max(300)
+          .nullable()
+          .optional()
+          .describe("Height in centimeters."),
+        target_weight_kg: z
+          .number()
+          .positive()
+          .max(500)
+          .nullable()
+          .optional()
+          .describe("Target weight in kilograms."),
+        preferred_language: z
+          .enum(["en", "pt", "es"])
+          .optional()
+          .describe("Preferred language (en, pt, or es)."),
+      },
+      handler: async (
+        args: {
+          display_name?: string | null;
+          gender?: string | null;
+          birthday?: string | null;
+          height_cm?: number | null;
+          target_weight_kg?: number | null;
+          preferred_language?: "en" | "pt" | "es";
+        },
+        ctx
+      ) => {
+        const updated = await updateUserProfile(
+          ctx.auth.userId,
+          {
+            display_name: args.display_name,
+            gender: args.gender,
+            birthday: args.birthday,
+            height_cm: args.height_cm,
+            target_weight_kg: args.target_weight_kg,
+            preferred_language: args.preferred_language,
+          },
+          { allowEmailChange: false }
+        );
+        const { profile_image_path: _omitted, ...safeProfile } = updated;
+        void _omitted;
+        return safeProfile;
+      },
     },
   ],
   resources: [
