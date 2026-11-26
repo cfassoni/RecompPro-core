@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "recomp-pro",
-  "version": "0.8.2-rc.1",
+  "version": "0.9.0-rc.1",
   "description": "Connects AI assistants to your self-hosted Recomp Pro body composition, strength training volume, muscle readiness, and shared report telemetry."
 }
