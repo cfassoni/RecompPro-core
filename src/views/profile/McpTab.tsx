@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Download,
   KeyRound,
   Plus,
   RefreshCw,
@@ -57,8 +58,9 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
-  // Endpoint & Quick-Connect state
+  // Endpoint, Bundles & Quick-Connect state
   const [copiedEndpoint, setCopiedEndpoint] = useState(false);
+  const [downloadingBundle, setDownloadingBundle] = useState<"antigravity" | "claude" | "chatgpt" | null>(null);
   const [selectedClient, setSelectedClient] = useState<QuickClientKey>("claude");
   const [copiedSnippet, setCopiedSnippet] = useState(false);
 
@@ -222,6 +224,30 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
     if (ok) {
       setCopiedSnippet(true);
       setTimeout(() => setCopiedSnippet(false), 2000);
+    }
+  };
+
+  const handleDownloadBundle = async (target: "antigravity" | "claude" | "chatgpt") => {
+    if (downloadingBundle) return;
+    setDownloadingBundle(target);
+    setFeedbackError(null);
+    try {
+      const { blob, filename } = await api.downloadMcpBundle(target);
+      if (typeof window !== "undefined" && typeof URL.createObjectURL === "function") {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("profile.mcp.bundles.downloadError");
+      setFeedbackError(msg);
+    } finally {
+      setDownloadingBundle(null);
     }
   };
 
@@ -398,6 +424,46 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
               <p className="text-[11px] text-muted-foreground">
                 {t("profile.mcp.endpointCard.oauthNote")}
               </p>
+            </div>
+
+            {/* One-Click Plugin Bundles (.zip) */}
+            <div className="pt-4 border-t border-border space-y-3">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  {t("profile.mcp.bundles.title")}
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {t("profile.mcp.bundles.desc")}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {(["antigravity", "claude", "chatgpt"] as const).map((target) => {
+                  const isDownloading = downloadingBundle === target;
+                  return (
+                    <button
+                      key={target}
+                      type="button"
+                      disabled={Boolean(downloadingBundle)}
+                      onClick={() => handleDownloadBundle(target)}
+                      className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-border bg-background/60 hover:bg-muted/60 text-left transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-foreground">
+                          {t(`profile.mcp.bundles.targets.${target}`)}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground font-mono truncate">
+                          recomp-pro-{target}.zip
+                        </div>
+                      </div>
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                      ) : (
+                        <Download className="h-4 w-4 text-primary shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Quick-Connect Client Snippets */}

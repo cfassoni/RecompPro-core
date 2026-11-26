@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "version:bump": "node scripts/bump-version.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "mcp:build-plugins": "node scripts/build-mcp-plugins.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

@@ -44,6 +44,10 @@ vi.mock("@/lib/api", () => ({
     revokeMcpGrant: vi.fn(),
     createMcpToken: vi.fn(),
     revokeMcpToken: vi.fn(),
+    downloadMcpBundle: vi.fn().mockResolvedValue({
+      blob: new Blob(["zip"]),
+      filename: "recomp-pro-claude.zip",
+    }),
   },
 }));
 
@@ -212,6 +216,19 @@ describe("Profile AI / MCP Tab (McpTab)", () => {
 
     await waitFor(() => {
       expect(api.revokeMcpToken).toHaveBeenCalledWith("pat-1");
+    });
+  });
+
+  it("triggers one-click .zip plugin bundle downloads for Antigravity, Claude, and ChatGPT", async () => {
+    render(<McpTab enableMcpServer={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Claude Plugin")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Claude Plugin/i }));
+    await waitFor(() => {
+      expect(api.downloadMcpBundle).toHaveBeenCalledWith("claude");
     });
   });
 });

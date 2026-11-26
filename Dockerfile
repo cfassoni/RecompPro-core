@@ -23,6 +23,7 @@ RUN mkdir -p /app/data /app/uploads/profile_pics /app/uploads/reports
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/src/lib/mcp/skills ./src/lib/mcp/skills
 
 EXPOSE 3000
 

@@ -476,6 +476,16 @@
         "label": "URL del Servidor MCP",
         "oauthNote": "Compatible con OAuth 2.1 (CIMD/DCR + PKCE S256) y Personal Access Tokens vía Authorization: Bearer."
       },
+      "bundles": {
+        "title": "Paquetes de Plugin (.zip)",
+        "desc": "Descargue un archivo de plugin preconfigurado con las skills canónicas de Recomp Pro y la URL de su instancia (sin secretos incrustados).",
+        "downloadError": "No se pudo descargar el paquete del plugin.",
+        "targets": {
+          "antigravity": "Plugin Antigravity",
+          "claude": "Plugin Claude",
+          "chatgpt": "ChatGPT / Codex"
+        }
+      },
       "quickConnect": {
         "title": "Guías de Conexión Rápida",
         "desc": "Seleccione su cliente de IA para ver las instrucciones y copiar la configuración lista.",

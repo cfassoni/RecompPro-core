@@ -35,7 +35,8 @@ export const systemModule: McpModule = {
             scopes: ctx.auth.scopes,
           },
           capabilities: {
-            phase: 3,
+            phase: 5,
+            skillsExtension: "io.modelcontextprotocol/skills",
             modules: catalog.modules,
             tools: catalog.tools,
             resources: catalog.resources,

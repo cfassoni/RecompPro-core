@@ -1,0 +1,10 @@
+{
+  "name": "recomp-pro",
+  "version": "0.8.2-rc.1",
+  "description": "Connects AI assistants to your self-hosted Recomp Pro body composition, strength training volume, muscle readiness, and shared report telemetry.",
+  "author": {
+    "name": "Recomp Pro"
+  },
+  "homepage": "https://github.com/cfassoni/RecompPro-core",
+  "repository": "https://github.com/cfassoni/RecompPro-core"
+}
