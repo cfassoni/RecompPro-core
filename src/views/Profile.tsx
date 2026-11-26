@@ -40,26 +40,47 @@ interface ProfileProps {
   user: User | null;
   onProfileUpdated: (updatedUser: User) => void;
   enableMcpServer?: boolean;
+  requestedTab?: string | null;
 }
 
 type ProfileTab = "account" | "personal" | "security" | "privacy" | "integrations" | "mcp";
 
-export default function Profile({ user, onProfileUpdated, enableMcpServer = true }: ProfileProps) {
+const VALID_PROFILE_TABS: readonly ProfileTab[] = [
+  "account",
+  "personal",
+  "security",
+  "privacy",
+  "integrations",
+  "mcp",
+];
+
+export default function Profile({
+  user,
+  onProfileUpdated,
+  enableMcpServer = true,
+  requestedTab,
+}: ProfileProps) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<ProfileTab>("account");
 
   useEffect(() => {
+    if (requestedTab !== undefined) {
+      if (requestedTab && VALID_PROFILE_TABS.includes(requestedTab as ProfileTab)) {
+        setActiveTab(requestedTab as ProfileTab);
+      } else if (requestedTab === null) {
+        setActiveTab("account");
+      }
+      return;
+    }
+
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (
-        tabParam &&
-        ["account", "personal", "security", "privacy", "integrations", "mcp"].includes(tabParam)
-      ) {
+      if (tabParam && VALID_PROFILE_TABS.includes(tabParam as ProfileTab)) {
         setActiveTab(tabParam as ProfileTab);
       }
     }
-  }, []);
+  }, [requestedTab]);
 
   // Account Information Fields
   const [email, setEmail] = useState(user?.email || "");

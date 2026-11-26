@@ -151,6 +151,7 @@
     "userMenu": "User profile menu",
     "editProfile": "Edit Profile",
     "integrations": "Integrations",
+    "aiAssistants": "AI Assistants",
     "logout": "Logout",
     "switchToDark": "Switch to Dark Mode",
     "switchToLight": "Switch to Light Mode",
@@ -460,25 +461,35 @@
       "security": "Security",
       "privacy": "Privacy",
       "integrations": "Integrations",
-      "mcp": "AI / MCP"
+      "mcp": "AI Assistants"
     },
     "mcp": {
-      "title": "AI Assistants & MCP Server",
-      "subtitle": "Connect Claude, ChatGPT, Gemini, Antigravity, and developer IDEs directly to your Recomp Pro health data.",
+      "title": "AI Assistants",
+      "directOAuthBadge": "Direct connection (OAuth)",
+      "subtitle": "Connect your account to ChatGPT, Claude, or Gemini to analyze workouts and body composition.",
       "disabledTitle": "MCP Server Disabled",
       "disabledDesc": "The embedded MCP server is disabled on this instance (ENABLE_MCP_SERVER=false).",
       "loadError": "Could not load MCP connection details.",
       "copied": "Copied",
       "copy": "Copy",
+      "copyAddress": "Copy Address",
       "endpointCard": {
         "title": "Streamable HTTP Endpoint",
         "desc": "Use this URL in any MCP-compatible AI client. Remote cloud clients require a public HTTPS origin.",
-        "label": "MCP Server URL",
-        "oauthNote": "Supports OAuth 2.1 (CIMD/DCR + PKCE S256) and Personal Access Tokens via Authorization: Bearer."
+        "label": "Account Connection URL",
+        "oauthNote": "You authorize access from your account and can choose between Read-Only or Read & Write mode."
+      },
+      "steps": {
+        "step1Title": "Copy your account address",
+        "step1Desc": "Use this address in your favorite AI assistant to start connecting.",
+        "step2Title": "Connect in your assistant",
+        "step2Desc": "Choose the app you use and follow the steps below.",
+        "step3Title": "Try asking",
+        "step3Desc": "After connecting, click a suggestion below to copy and send to your assistant:"
       },
       "bundles": {
         "title": "Plugin Bundles (.zip)",
-        "desc": "Download a pre-configured plugin archive with canonical Recomp Pro skills and your instance URL (no embedded secrets).",
+        "desc": "Manual installation with built-in canonical skills and pre-configured URL (no embedded secrets).",
         "downloadError": "Could not download plugin bundle.",
         "targets": {
           "antigravity": "Antigravity Plugin",
@@ -488,19 +499,58 @@
       },
       "quickConnect": {
         "title": "Quick-Connect Guides",
-        "desc": "Select your AI client for setup instructions and ready-to-copy configuration snippets.",
+        "desc": "Select your AI client for step-by-step instructions.",
         "clients": {
-          "claude": "Claude",
           "chatgpt": "ChatGPT",
+          "claude": "Claude",
           "gemini": "Gemini",
           "ide": "Antigravity / IDE"
         },
-        "instructions": {
-          "claude": "In Claude Web (Settings → Connectors → Add custom connector) or Claude Desktop, paste your MCP Server URL above and complete OAuth sign-in, or use the mcp_servers snippet below.",
-          "chatgpt": "In ChatGPT (Settings → Apps & Connectors → Developer Mode → Create), paste your HTTPS MCP Server URL with OAuth 2.1 authentication.",
-          "gemini": "For Gemini CLI, add the streamable HTTP server to ~/.gemini/settings.json using OAuth or a Personal Access Token.",
-          "ide": "In Antigravity, Cursor, or VS Code, add the server entry to your MCP configuration file using OAuth or a Bearer Personal Access Token."
+        "guides": {
+          "chatgpt": {
+            "step1": "Open ChatGPT and go to Settings → Apps / Connectors (or Connectors).",
+            "step2": "Click Create / Add custom connector and paste the address copied above.",
+            "step3": "Sign in to your Recomp Pro account on the authorization screen and approve access.",
+            "compat": "Requires custom connector support on your ChatGPT plan",
+            "docLabel": "View official ChatGPT docs"
+          },
+          "claude": {
+            "step1": "Open Claude (Web or Desktop) and go to Settings → Connectors.",
+            "step2": "Click Add custom connector and paste the address from step 1.",
+            "step3": "Complete sign-in on Recomp Pro choosing Read-Only or Read & Write access.",
+            "compat": "Compatible with Claude Web and Claude Desktop",
+            "docLabel": "View official Claude docs"
+          },
+          "gemini": {
+            "step1": "Open extensions or connector settings in a Gemini client that supports remote MCP.",
+            "step2": "Add a new connection using the address from step 1.",
+            "step3": "Authorize access when the Recomp Pro sign-in window opens.",
+            "compat": "Available in Gemini clients with remote MCP connector support",
+            "docLabel": "View official Gemini docs"
+          },
+          "ide": {
+            "step1": "In Antigravity or your IDE, open the MCP servers configuration panel.",
+            "step2": "Add a remote server with the address from step 1 (or import a bundle in Advanced options).",
+            "step3": "Sign in to your Recomp Pro account to activate tools and skills.",
+            "compat": "Compatible with Antigravity, Cursor, and VS Code with MCP OAuth",
+            "docLabel": "Open advanced options / JSON"
+          }
         }
+      },
+      "prompts": {
+        "copyAction": "Copy prompt",
+        "items": {
+          "recomp": "Analyze my body fat and lean mass progress over the last 3 months.",
+          "readiness": "How is my muscle recovery looking for today's workout?",
+          "volume": "Compare my weekly training volume with my weight changes and goals."
+        }
+      },
+      "advanced": {
+        "title": "Advanced options (for developers, CLIs & manual bundles)",
+        "expand": "Expand",
+        "collapse": "Collapse",
+        "jsonTitle": "JSON Configuration (mcpServers)",
+        "jsonDesc": "For desktop clients or code editors using a JSON configuration file."
       },
       "grants": {
         "title": "Connected AI Applications",

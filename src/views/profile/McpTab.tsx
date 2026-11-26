@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
@@ -10,6 +10,7 @@ import {
   ChevronUp,
   Copy,
   Download,
+  ExternalLink,
   KeyRound,
   Plus,
   RefreshCw,
@@ -34,7 +35,17 @@ interface McpTabProps {
   enableMcpServer?: boolean;
 }
 
-type QuickClientKey = "claude" | "chatgpt" | "gemini" | "ide";
+type QuickClientKey = "chatgpt" | "claude" | "gemini" | "ide";
+type PromptKey = "recomp" | "readiness" | "volume";
+
+const PROMPT_KEYS: readonly PromptKey[] = ["recomp", "readiness", "volume"];
+
+const OFFICIAL_GUIDE_URLS: Record<Exclude<QuickClientKey, "ide">, string> = {
+  chatgpt: "https://help.openai.com/en/articles/11487775-connectors-in-chatgpt",
+  claude:
+    "https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp",
+  gemini: "https://geminicli.com/docs/tools/mcp-server/",
+};
 
 const DOMAIN_SCOPES: Array<{ scope: string; isWrite: boolean }> = [
   { scope: "profile:read", isWrite: false },
@@ -58,11 +69,14 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
-  // Endpoint, Bundles & Quick-Connect state
+  // Endpoint, Guides, Prompts & Advanced state
   const [copiedEndpoint, setCopiedEndpoint] = useState(false);
   const [downloadingBundle, setDownloadingBundle] = useState<"antigravity" | "claude" | "chatgpt" | null>(null);
-  const [selectedClient, setSelectedClient] = useState<QuickClientKey>("claude");
+  const [selectedClient, setSelectedClient] = useState<QuickClientKey>("chatgpt");
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [copiedPromptKey, setCopiedPromptKey] = useState<PromptKey | null>(null);
+  const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+  const advancedRef = useRef<HTMLDivElement>(null);
 
   // Create PAT modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -168,7 +182,7 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
     (typeof window !== "undefined" ? `${window.location.origin}/mcp` : "http://localhost:3000/mcp");
 
   const getSnippetForClient = (client: QuickClientKey): string => {
-    if (client === "claude") {
+    if (client === "claude" || client === "chatgpt") {
       return JSON.stringify(
         {
           mcpServers: {
@@ -181,9 +195,6 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
         null,
         2
       );
-    }
-    if (client === "chatgpt") {
-      return `MCP Server URL: ${endpointUrl}\nAuthentication: OAuth 2.1 (PKCE S256)`;
     }
     if (client === "gemini") {
       return JSON.stringify(
@@ -224,6 +235,24 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
     if (ok) {
       setCopiedSnippet(true);
       setTimeout(() => setCopiedSnippet(false), 2000);
+    }
+  };
+
+  const handleCopyPrompt = async (promptKey: PromptKey) => {
+    const promptText = t(`profile.mcp.prompts.items.${promptKey}`);
+    const ok = await copyTextToClipboard(promptText);
+    if (ok) {
+      setCopiedPromptKey(promptKey);
+      setTimeout(() => {
+        setCopiedPromptKey((current) => (current === promptKey ? null : current));
+      }, 2000);
+    }
+  };
+
+  const handleOpenAdvanced = () => {
+    setIsAdvancedExpanded(true);
+    if (typeof advancedRef.current?.scrollIntoView === "function") {
+      advancedRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   };
 
@@ -331,16 +360,21 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
       aria-labelledby="tab-mcp"
       className="space-y-6 animate-in fade-in-50 duration-200"
     >
-      {/* Header Banner Card */}
-      <div className="bg-card border border-border rounded-xl p-6 shadow-xs space-y-4">
+      {/* Header Banner & Friendly Setup Card */}
+      <div className="bg-card border border-border rounded-xl p-6 shadow-xs space-y-6">
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-foreground">{t("profile.mcp.title")}</h3>
-              <p className="text-xs text-muted-foreground">{t("profile.mcp.subtitle")}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-semibold text-foreground">{t("profile.mcp.title")}</h3>
+                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {t("profile.mcp.directOAuthBadge")}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{t("profile.mcp.subtitle")}</p>
             </div>
           </div>
           <button
@@ -379,21 +413,21 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Endpoint URL */}
+            {/* Step 1: Copy Account Address */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-semibold shrink-0">
+                  1
+                </span>
                 <label
                   htmlFor="mcp-endpoint-url"
-                  className="text-sm font-medium text-foreground"
+                  className="text-sm font-semibold text-foreground"
                 >
-                  {t("profile.mcp.endpointCard.label")}
+                  {t("profile.mcp.steps.step1Title")}
                 </label>
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {t("profile.mcp.endpointCard.title")}
-                </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("profile.mcp.endpointCard.desc")}
+                {t("profile.mcp.steps.step1Desc")}
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -416,69 +450,35 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
                   ) : (
                     <>
                       <Copy className="h-3.5 w-3.5" />
-                      <span>{t("profile.mcp.copy")}</span>
+                      <span>{t("profile.mcp.copyAddress")}</span>
                     </>
                   )}
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                {t("profile.mcp.endpointCard.oauthNote")}
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span>{t("profile.mcp.endpointCard.oauthNote")}</span>
               </p>
             </div>
 
-            {/* One-Click Plugin Bundles (.zip) */}
-            <div className="pt-4 border-t border-border space-y-3">
+            {/* Step 2: Connect in Your Assistant */}
+            <div className="pt-5 border-t border-border space-y-3">
               <div>
-                <h4 className="text-sm font-semibold text-foreground">
-                  {t("profile.mcp.bundles.title")}
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  {t("profile.mcp.bundles.desc")}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {(["antigravity", "claude", "chatgpt"] as const).map((target) => {
-                  const isDownloading = downloadingBundle === target;
-                  return (
-                    <button
-                      key={target}
-                      type="button"
-                      disabled={Boolean(downloadingBundle)}
-                      onClick={() => handleDownloadBundle(target)}
-                      className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-border bg-background/60 hover:bg-muted/60 text-left transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-foreground">
-                          {t(`profile.mcp.bundles.targets.${target}`)}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground font-mono truncate">
-                          recomp-pro-{target}.zip
-                        </div>
-                      </div>
-                      {isDownloading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                      ) : (
-                        <Download className="h-4 w-4 text-primary shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quick-Connect Client Snippets */}
-            <div className="pt-4 border-t border-border space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">
-                  {t("profile.mcp.quickConnect.title")}
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  {t("profile.mcp.quickConnect.desc")}
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-semibold shrink-0">
+                    2
+                  </span>
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {t("profile.mcp.steps.step2Title")}
+                  </h4>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("profile.mcp.steps.step2Desc")}
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t("profile.mcp.quickConnect.title")}>
-                {(["claude", "chatgpt", "gemini", "ide"] as QuickClientKey[]).map((clientKey) => {
+              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t("profile.mcp.steps.step2Title")}>
+                {(["chatgpt", "claude", "gemini", "ide"] as QuickClientKey[]).map((clientKey) => {
                   const active = selectedClient === clientKey;
                   return (
                     <button
@@ -502,33 +502,195 @@ export default function McpTab({ enableMcpServer = true }: McpTabProps) {
                 })}
               </div>
 
-              <div className="p-3.5 rounded-xl border border-border bg-background/60 space-y-2.5">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {t(`profile.mcp.quickConnect.instructions.${selectedClient}`)}
-                </p>
-                <div className="relative">
-                  <pre className="p-3 pr-20 rounded-lg bg-muted/50 border border-border text-xs font-mono text-foreground overflow-x-auto">
-                    {getSnippetForClient(selectedClient)}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={handleCopySnippet}
-                    className="absolute top-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-card border border-border hover:bg-muted text-foreground text-[11px] font-medium transition-colors cursor-pointer"
-                  >
-                    {copiedSnippet ? (
-                      <>
-                        <Check className="h-3 w-3 text-emerald-500" />
-                        <span>{t("profile.mcp.copied")}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" />
-                        <span>{t("profile.mcp.copy")}</span>
-                      </>
-                    )}
-                  </button>
+              <div className="p-4 rounded-xl border border-border bg-background/60 space-y-3">
+                <ol className="list-decimal list-inside space-y-1.5 text-xs text-foreground leading-relaxed">
+                  <li>{t(`profile.mcp.quickConnect.guides.${selectedClient}.step1`)}</li>
+                  <li>{t(`profile.mcp.quickConnect.guides.${selectedClient}.step2`)}</li>
+                  <li>{t(`profile.mcp.quickConnect.guides.${selectedClient}.step3`)}</li>
+                </ol>
+
+                <div className="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2.5">
+                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                    {t(`profile.mcp.quickConnect.guides.${selectedClient}.compat`)}
+                  </span>
+
+                  {selectedClient === "ide" ? (
+                    <button
+                      type="button"
+                      onClick={handleOpenAdvanced}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <span>{t("profile.mcp.quickConnect.guides.ide.docLabel")}</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <a
+                      href={OFFICIAL_GUIDE_URLS[selectedClient]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium transition-colors"
+                    >
+                      <span>{t(`profile.mcp.quickConnect.guides.${selectedClient}.docLabel`)}</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
                 </div>
               </div>
+            </div>
+
+            {/* Step 3: Try Asking */}
+            <div className="pt-5 border-t border-border space-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-semibold shrink-0">
+                    3
+                  </span>
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {t("profile.mcp.steps.step3Title")}
+                  </h4>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("profile.mcp.steps.step3Desc")}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                {PROMPT_KEYS.map((promptKey) => {
+                  const isCopied = copiedPromptKey === promptKey;
+                  return (
+                    <button
+                      key={promptKey}
+                      type="button"
+                      onClick={() => handleCopyPrompt(promptKey)}
+                      className="flex flex-col justify-between gap-2 p-3 rounded-xl border border-border bg-background/60 hover:border-primary/60 hover:bg-muted/40 text-left transition-colors cursor-pointer"
+                    >
+                      <span className="text-xs text-foreground leading-relaxed">
+                        &ldquo;{t(`profile.mcp.prompts.items.${promptKey}`)}&rdquo;
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+                        {isCopied ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-500" />
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              {t("profile.mcp.copied")}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span>{t("profile.mcp.prompts.copyAction")}</span>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Collapsed Developer / Advanced Options */}
+            <div
+              ref={advancedRef}
+              className="rounded-xl border border-border bg-muted/20 overflow-hidden"
+            >
+              <button
+                type="button"
+                aria-expanded={isAdvancedExpanded}
+                onClick={() => setIsAdvancedExpanded((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
+              >
+                <span>{t("profile.mcp.advanced.title")}</span>
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  <span>
+                    {isAdvancedExpanded
+                      ? t("profile.mcp.advanced.collapse")
+                      : t("profile.mcp.advanced.expand")}
+                  </span>
+                  {isAdvancedExpanded ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </span>
+              </button>
+
+              {isAdvancedExpanded && (
+                <div className="p-4 bg-card border-t border-border space-y-5">
+                  {/* One-Click Plugin Bundles (.zip) */}
+                  <div className="space-y-2.5">
+                    <div>
+                      <h5 className="text-xs font-semibold text-foreground">
+                        {t("profile.mcp.bundles.title")}
+                      </h5>
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("profile.mcp.bundles.desc")}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {(["antigravity", "claude", "chatgpt"] as const).map((target) => {
+                        const isDownloading = downloadingBundle === target;
+                        return (
+                          <button
+                            key={target}
+                            type="button"
+                            disabled={Boolean(downloadingBundle)}
+                            onClick={() => handleDownloadBundle(target)}
+                            className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-border bg-background/60 hover:bg-muted/60 text-left transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-foreground">
+                                {t(`profile.mcp.bundles.targets.${target}`)}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground font-mono truncate">
+                                recomp-pro-{target}.zip
+                              </div>
+                            </div>
+                            {isDownloading ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                            ) : (
+                              <Download className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* JSON Snippet */}
+                  <div className="space-y-2">
+                    <div>
+                      <h5 className="text-xs font-semibold text-foreground">
+                        {t("profile.mcp.advanced.jsonTitle")}
+                      </h5>
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("profile.mcp.advanced.jsonDesc")}
+                      </p>
+                    </div>
+                    <div className="relative">
+                      <pre className="p-3 pr-20 rounded-lg bg-muted/50 border border-border text-xs font-mono text-foreground overflow-x-auto">
+                        {getSnippetForClient(selectedClient)}
+                      </pre>
+                      <button
+                        type="button"
+                        onClick={handleCopySnippet}
+                        className="absolute top-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-card border border-border hover:bg-muted text-foreground text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        {copiedSnippet ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-500" />
+                            <span>{t("profile.mcp.copied")}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span>{t("profile.mcp.copy")}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

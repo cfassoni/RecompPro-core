@@ -107,7 +107,7 @@ describe("Profile AI / MCP Tab (McpTab)", () => {
     expect(api.getMcpOverview).not.toHaveBeenCalled();
   });
 
-  it("displays endpoint URL, quick-connect snippets, grants, PATs, and collapsible audit log", async () => {
+  it("displays endpoint URL, end-user assistant guides, prompt suggestions, grants, PATs, and collapsed audit log", async () => {
     render(<McpTab enableMcpServer={true} />);
 
     await waitFor(() => {
@@ -115,15 +115,41 @@ describe("Profile AI / MCP Tab (McpTab)", () => {
     });
 
     // Copy endpoint URL
-    const copyButtons = screen.getAllByRole("button", { name: "Copy" });
-    fireEvent.click(copyButtons[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Copy Address" }));
     await waitFor(() => {
       expect(copyTextToClipboard).toHaveBeenCalledWith("https://recomp.example.com/mcp");
     });
 
-    // Switch quick-connect client tab to Gemini
+    // Default guide shows ChatGPT official docs link
+    const chatgptDocsLink = screen.getByRole("link", { name: /View official ChatGPT docs/i });
+    expect(chatgptDocsLink).toHaveAttribute(
+      "href",
+      "https://help.openai.com/en/articles/11487775-connectors-in-chatgpt"
+    );
+
+    // Switch guide tab to Claude & Gemini
+    fireEvent.click(screen.getByRole("tab", { name: "Claude" }));
+    expect(
+      screen.getByRole("link", { name: /View official Claude docs/i })
+    ).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("tab", { name: "Gemini" }));
-    expect(screen.getByText(/~\/\.gemini\/settings\.json/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /View official Gemini docs/i })
+    ).toBeInTheDocument();
+
+    // Prompt suggestions copy to clipboard
+    fireEvent.click(
+      screen.getByRole("button", { name: /How is my muscle recovery looking/i })
+    );
+    await waitFor(() => {
+      expect(copyTextToClipboard).toHaveBeenCalledWith(
+        "How is my muscle recovery looking for today's workout?"
+      );
+    });
+
+    // Advanced developer section (.zip + JSON) is collapsed by default
+    expect(screen.queryByText("Claude Plugin")).not.toBeInTheDocument();
 
     // OAuth grant & PAT visible
     expect(screen.getByText("Claude Web")).toBeInTheDocument();
@@ -219,16 +245,28 @@ describe("Profile AI / MCP Tab (McpTab)", () => {
     });
   });
 
-  it("triggers one-click .zip plugin bundle downloads for Antigravity, Claude, and ChatGPT", async () => {
+  it("expands Advanced options to allow .zip plugin downloads and JSON snippet copy", async () => {
     render(<McpTab enableMcpServer={true} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Claude Plugin")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Advanced options/i })
+      ).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /Advanced options/i }));
+
+    expect(screen.getByText("Claude Plugin")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Claude Plugin/i }));
     await waitFor(() => {
       expect(api.downloadMcpBundle).toHaveBeenCalledWith("claude");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    await waitFor(() => {
+      expect(copyTextToClipboard).toHaveBeenCalledWith(
+        expect.stringContaining("https://recomp.example.com/mcp")
+      );
     });
   });
 });

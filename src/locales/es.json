@@ -151,6 +151,7 @@
     "userMenu": "Menú de perfil de usuario",
     "editProfile": "Editar Perfil",
     "integrations": "Integraciones",
+    "aiAssistants": "Asistentes de IA",
     "logout": "Cerrar Sesión",
     "switchToDark": "Cambiar a Modo Oscuro",
     "switchToLight": "Cambiar a Modo Claro",
@@ -460,25 +461,35 @@
       "security": "Seguridad",
       "privacy": "Privacidad",
       "integrations": "Integraciones",
-      "mcp": "AI / MCP"
+      "mcp": "Asistentes de IA"
     },
     "mcp": {
-      "title": "Asistentes de IA y Servidor MCP",
-      "subtitle": "Conecte Claude, ChatGPT, Gemini, Antigravity e IDEs directamente a sus datos de Recomp Pro.",
+      "title": "Asistentes de IA",
+      "directOAuthBadge": "Conexión directa (OAuth)",
+      "subtitle": "Conecte su cuenta a ChatGPT, Claude o Gemini para analizar entrenamientos y composición corporal.",
       "disabledTitle": "Servidor MCP Desactivado",
       "disabledDesc": "El servidor MCP integrado está desactivado en esta instancia (ENABLE_MCP_SERVER=false).",
       "loadError": "No se pudieron cargar los detalles de conexión MCP.",
       "copied": "Copiado",
       "copy": "Copiar",
+      "copyAddress": "Copiar dirección",
       "endpointCard": {
         "title": "Endpoint Streamable HTTP",
         "desc": "Use esta URL en cualquier cliente compatible con MCP. Los clientes en la nube requieren un origen HTTPS público.",
-        "label": "URL del Servidor MCP",
-        "oauthNote": "Compatible con OAuth 2.1 (CIMD/DCR + PKCE S256) y Personal Access Tokens vía Authorization: Bearer."
+        "label": "Dirección de conexión de la cuenta",
+        "oauthNote": "Usted autoriza el acceso desde su cuenta y puede elegir entre modo de solo lectura o lectura y escritura."
+      },
+      "steps": {
+        "step1Title": "Copie la dirección de su cuenta",
+        "step1Desc": "Use esta dirección en su asistente de IA favorito para iniciar la conexión.",
+        "step2Title": "Conecte en su asistente",
+        "step2Desc": "Elija la aplicación que utiliza y siga los pasos a continuación.",
+        "step3Title": "Pruebe preguntar",
+        "step3Desc": "Después de conectar, haga clic en una sugerencia para copiarla y enviarla al asistente:"
       },
       "bundles": {
         "title": "Paquetes de Plugin (.zip)",
-        "desc": "Descargue un archivo de plugin preconfigurado con las skills canónicas de Recomp Pro y la URL de su instancia (sin secretos incrustados).",
+        "desc": "Instalación manual con skills canónicas incluidas y URL preconfigurada (sin secretos).",
         "downloadError": "No se pudo descargar el paquete del plugin.",
         "targets": {
           "antigravity": "Plugin Antigravity",
@@ -488,19 +499,58 @@
       },
       "quickConnect": {
         "title": "Guías de Conexión Rápida",
-        "desc": "Seleccione su cliente de IA para ver las instrucciones y copiar la configuración lista.",
+        "desc": "Seleccione su cliente de IA para ver las instrucciones paso a paso.",
         "clients": {
-          "claude": "Claude",
           "chatgpt": "ChatGPT",
+          "claude": "Claude",
           "gemini": "Gemini",
           "ide": "Antigravity / IDE"
         },
-        "instructions": {
-          "claude": "En Claude Web (Settings → Connectors → Add custom connector) o Claude Desktop, pegue su URL del servidor MCP y complete el inicio de sesión OAuth, o use el fragmento siguiente.",
-          "chatgpt": "En ChatGPT (Settings → Apps & Connectors → Developer Mode → Create), ingrese su URL HTTPS del servidor MCP con autenticación OAuth 2.1.",
-          "gemini": "En Gemini CLI, agregue el servidor Streamable HTTP en ~/.gemini/settings.json usando OAuth o un Personal Access Token.",
-          "ide": "En Antigravity, Cursor o VS Code, agregue la entrada del servidor a su configuración MCP usando OAuth o Bearer Personal Access Token."
+        "guides": {
+          "chatgpt": {
+            "step1": "Abra ChatGPT y vaya a Configuración → Apps / Conectores (o Connectors).",
+            "step2": "Haga clic en Crear / Agregar conector personalizado y pegue la dirección copiada arriba.",
+            "step3": "Inicie sesión en su cuenta de Recomp Pro en la pantalla de autorización y apruebe el acceso.",
+            "compat": "Requiere soporte para conectores personalizados en su plan de ChatGPT",
+            "docLabel": "Ver documentación oficial de ChatGPT"
+          },
+          "claude": {
+            "step1": "Abra Claude (Web o Desktop) y vaya a Settings → Connectors.",
+            "step2": "Haga clic en Add custom connector y pegue la dirección del paso 1.",
+            "step3": "Complete el inicio de sesión en Recomp Pro eligiendo solo lectura o lectura y escritura.",
+            "compat": "Compatible con Claude Web y Claude Desktop",
+            "docLabel": "Ver documentación oficial de Claude"
+          },
+          "gemini": {
+            "step1": "Abra la configuración de extensiones/conectores en un cliente Gemini compatible con MCP remoto.",
+            "step2": "Agregue una nueva conexión con la dirección del paso 1.",
+            "step3": "Autorice el acceso cuando aparezca la ventana de inicio de sesión de Recomp Pro.",
+            "compat": "Disponible en clientes Gemini con soporte para conectores MCP remotos",
+            "docLabel": "Ver documentación oficial de Gemini"
+          },
+          "ide": {
+            "step1": "En Antigravity o su IDE, abra el panel de configuración de servidores MCP.",
+            "step2": "Agregue un servidor remoto con la dirección del paso 1 (o importe un paquete en Opciones avanzadas).",
+            "step3": "Inicie sesión en su cuenta de Recomp Pro para activar las herramientas y skills.",
+            "compat": "Compatible con Antigravity, Cursor y VS Code con MCP OAuth",
+            "docLabel": "Abrir opciones avanzadas / JSON"
+          }
         }
+      },
+      "prompts": {
+        "copyAction": "Copiar pregunta",
+        "items": {
+          "recomp": "Analiza mi evolución de grasa corporal y masa muscular en los últimos 3 meses.",
+          "readiness": "¿Cómo está mi recuperación muscular para el entrenamiento de hoy?",
+          "volume": "Compara mi volumen semanal de entrenamientos con mis cambios de peso y metas."
+        }
+      },
+      "advanced": {
+        "title": "Opciones avanzadas (para desarrolladores, CLIs y paquetes manuales)",
+        "expand": "Expandir",
+        "collapse": "Contraer",
+        "jsonTitle": "Configuración JSON (mcpServers)",
+        "jsonDesc": "Para clientes de escritorio o editores de código que utilizan un archivo JSON."
       },
       "grants": {
         "title": "Aplicaciones de IA Conectadas",

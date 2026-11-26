@@ -99,7 +99,7 @@ describe("Profile Tabbed Navigation and Functionality", () => {
     const integrationsTabs = screen.getAllByRole("tab", { name: /Integrations/i });
     expect(integrationsTabs.length).toBeGreaterThanOrEqual(1);
 
-    const mcpTabs = screen.getAllByRole("tab", { name: /AI \/ MCP/i });
+    const mcpTabs = screen.getAllByRole("tab", { name: /AI Assistants/i });
     expect(mcpTabs.length).toBeGreaterThanOrEqual(1);
 
     // Default active panel is Account Information
@@ -258,13 +258,23 @@ describe("Profile Tabbed Navigation and Functionality", () => {
     });
   });
 
-  it("switches to AI / MCP tab and renders MCP management panel", async () => {
+  it("switches to AI Assistants tab and renders assistant connection panel", async () => {
     render(<Profile user={mockUser} onProfileUpdated={mockOnProfileUpdated} />);
 
-    const mcpTab = screen.getAllByRole("tab", { name: /AI \/ MCP/i })[0];
+    const mcpTab = screen.getAllByRole("tab", { name: /AI Assistants/i })[0];
     fireEvent.click(mcpTab);
 
-    expect(screen.getByRole("tabpanel", { name: /AI \/ MCP/i })).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: /AI Assistants/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("http://localhost:3000/mcp")).toBeInTheDocument();
+    });
+  });
+
+  it("activates AI Assistants tab directly when requestedTab='mcp'", async () => {
+    render(<Profile user={mockUser} onProfileUpdated={mockOnProfileUpdated} requestedTab="mcp" />);
+
+    expect(screen.getByRole("tabpanel", { name: /AI Assistants/i })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("http://localhost:3000/mcp")).toBeInTheDocument();

@@ -21,6 +21,7 @@ export default function AuthenticatedLayout({
     isAuthenticated,
     isCheckingAuth,
     sharedLinksCount,
+    enableMcpServer,
     logout,
   } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -52,6 +53,9 @@ export default function AuthenticatedLayout({
         onLogout={logout}
         onEditProfile={() => router.push("/profile")}
         onNavigateToIntegrations={() => router.push("/profile?tab=integrations")}
+        onNavigateToAiAssistants={
+          enableMcpServer ? () => router.push("/profile?tab=mcp") : undefined
+        }
         onUserUpdate={setUser}
         onMobileMenuToggle={() => setIsMobileMenuOpen((prev) => !prev)}
       />

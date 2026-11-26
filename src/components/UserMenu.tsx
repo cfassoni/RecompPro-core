@@ -9,15 +9,23 @@ interface UserMenuProps {
   onLogout: () => void;
   onEditProfile: () => void;
   onIntegrations?: () => void;
+  onAiAssistants?: () => void;
 }
 
-export default function UserMenu({ user, onLogout, onEditProfile, onIntegrations }: UserMenuProps) {
+export default function UserMenu({
+  user,
+  onLogout,
+  onEditProfile,
+  onIntegrations,
+  onAiAssistants,
+}: UserMenuProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const editProfileRef = useRef<HTMLButtonElement>(null);
   const integrationsRef = useRef<HTMLButtonElement>(null);
+  const aiAssistantsRef = useRef<HTMLButtonElement>(null);
   const logoutRef = useRef<HTMLButtonElement>(null);
 
   // Close dropdown when clicking outside
@@ -45,37 +53,38 @@ export default function UserMenu({ user, onLogout, onEditProfile, onIntegrations
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!isOpen) return;
 
+    const menuItems = [
+      editProfileRef.current,
+      integrationsRef.current,
+      aiAssistantsRef.current,
+      logoutRef.current,
+    ].filter((el): el is HTMLButtonElement => Boolean(el));
+
     if (e.key === "Escape") {
       setIsOpen(false);
       e.preventDefault();
-    } else if (e.key === "ArrowDown") {
-      if (document.activeElement === editProfileRef.current) {
-        integrationsRef.current?.focus();
-      } else if (document.activeElement === integrationsRef.current) {
-        logoutRef.current?.focus();
-      } else {
-        editProfileRef.current?.focus();
-      }
+    } else if (e.key === "ArrowDown" && menuItems.length > 0) {
+      const idx = menuItems.indexOf(document.activeElement as HTMLButtonElement);
+      const nextIdx = idx >= 0 ? (idx + 1) % menuItems.length : 0;
+      menuItems[nextIdx].focus();
       e.preventDefault();
-    } else if (e.key === "ArrowUp") {
-      if (document.activeElement === logoutRef.current) {
-        integrationsRef.current?.focus();
-      } else if (document.activeElement === integrationsRef.current) {
-        editProfileRef.current?.focus();
-      } else {
-        logoutRef.current?.focus();
-      }
+    } else if (e.key === "ArrowUp" && menuItems.length > 0) {
+      const idx = menuItems.indexOf(document.activeElement as HTMLButtonElement);
+      const prevIdx = idx >= 0 ? (idx - 1 + menuItems.length) % menuItems.length : menuItems.length - 1;
+      menuItems[prevIdx].focus();
       e.preventDefault();
-    } else if (e.key === "Tab") {
+    } else if (e.key === "Tab" && menuItems.length > 0) {
       // Basic focus trapping for Tab
+      const first = menuItems[0];
+      const last = menuItems[menuItems.length - 1];
       if (e.shiftKey) {
-        if (document.activeElement === editProfileRef.current) {
-          logoutRef.current?.focus();
+        if (document.activeElement === first) {
+          last.focus();
           e.preventDefault();
         }
       } else {
-        if (document.activeElement === logoutRef.current) {
-          editProfileRef.current?.focus();
+        if (document.activeElement === last) {
+          first.focus();
           e.preventDefault();
         }
       }
@@ -164,6 +173,21 @@ export default function UserMenu({ user, onLogout, onEditProfile, onIntegrations
           >
             {t("toolbar.integrations")}
           </button>
+
+          {/* AI Assistants */}
+          {onAiAssistants && (
+            <button
+              ref={aiAssistantsRef}
+              role="menuitem"
+              onClick={() => {
+                onAiAssistants();
+                setIsOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer focus-visible:bg-muted focus-visible:outline-hidden"
+            >
+              {t("toolbar.aiAssistants")}
+            </button>
+          )}
 
           <div className="h-[1px] bg-border my-1" />
 
