@@ -124,9 +124,11 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
     const roListRes = await rpc(readOnlyPat, 2, "skills/list", {});
     expect(roListRes.status).toBe(200);
     const roSkills = (
-      roListRes.payload.result as { skills: Array<{ name: string; uri: string }> }
+      roListRes.payload.result as {
+        skills: Array<{ uri: string; frontmatter: { name: string } }>;
+      }
     ).skills;
-    expect(roSkills.map((s) => s.name).sort()).toEqual([
+    expect(roSkills.map((s) => s.frontmatter.name).sort()).toEqual([
       "biometrics-interpreter",
       "recomp-progress-analysis",
       "training-readiness-coach",
@@ -134,7 +136,7 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
 
     // Read-Only token rejected on skills/get & resources/read for write skill
     const roGetDenied = await rpc(readOnlyPat, 3, "skills/get", {
-      uri: "skill://shared-report-curator",
+      uri: "skill://shared-report-curator/SKILL.md",
     });
     expect(roGetDenied.payload.error).toBeDefined();
 
@@ -143,35 +145,43 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
     });
     expect(roFileDenied.payload.error).toBeDefined();
 
-    // 3. Read+Write token sees all 4 skills with valid SHA-256 digests
+    // 3. Read+Write token sees all 4 skills with valid SEP-2640 frontmatter and SHA-256 digests
     const rwListRes = await rpc(readWritePat, 5, "skills/list", {});
     const rwSkills = (
       rwListRes.payload.result as {
         skills: Array<{
-          name: string;
           uri: string;
-          files: Array<{ path: string; uri: string; sha256: string; size: number }>;
+          frontmatter: { name: string; description: string; compatibility: string };
+          resources: Array<{ uri: string; digest: string; size: number; mimeType: string }>;
         }>;
       }
     ).skills;
-    expect(rwSkills.map((s) => s.name).sort()).toEqual([
+    expect(rwSkills.map((s) => s.frontmatter.name).sort()).toEqual([
       "biometrics-interpreter",
       "recomp-progress-analysis",
       "shared-report-curator",
       "training-readiness-coach",
     ]);
 
-    const curator = rwSkills.find((s) => s.name === "shared-report-curator")!;
-    expect(curator.uri).toBe("skill://shared-report-curator");
-    const skillMdEntry = curator.files.find((f) => f.path === "SKILL.md")!;
-    expect(skillMdEntry.sha256).toMatch(/^[a-f0-9]{64}$/);
+    const curator = rwSkills.find((s) => s.frontmatter.name === "shared-report-curator")!;
+    expect(curator.uri).toBe("skill://shared-report-curator/SKILL.md");
+    const skillMdEntry = curator.resources.find(
+      (r) => r.uri === "skill://shared-report-curator/SKILL.md"
+    )!;
+    expect(skillMdEntry.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(skillMdEntry.size).toBeGreaterThan(0);
 
     // 4. skills/get, resources/read, and resources/directory/read match disk SHA-256
     const getRes = await rpc(readWritePat, 6, "skills/get", {
-      uri: "skill://biometrics-interpreter",
+      uri: "skill://biometrics-interpreter/SKILL.md",
     });
-    const bioSkill = (getRes.payload.result as { skill: { name: string; files: Array<{ sha256: string }> } }).skill;
-    expect(bioSkill.name).toBe("biometrics-interpreter");
+    const bioSkill = getRes.payload.result as {
+      uri: string;
+      frontmatter: { name: string };
+      resources: Array<{ uri: string; digest: string; size: number }>;
+    };
+    expect(bioSkill.uri).toBe("skill://biometrics-interpreter/SKILL.md");
+    expect(bioSkill.frontmatter.name).toBe("biometrics-interpreter");
 
     const fileReadRes = await rpc(readWritePat, 7, "resources/read", {
       uri: "skill://biometrics-interpreter/SKILL.md",
@@ -184,17 +194,23 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
       .createHash("sha256")
       .update(Buffer.from(fileContent.text, "utf-8"))
       .digest("hex");
-    expect(computedSha).toBe(bioSkill.files[0].sha256);
+    expect(bioSkill.resources[0].digest).toBe(`sha256:${computedSha}`);
 
     const dirReadRes = await rpc(readWritePat, 8, "resources/directory/read", {
       uri: "skill://training-readiness-coach",
     });
     const dirResult = dirReadRes.payload.result as {
-      uri: string;
-      contents: Array<{ uri: string; text: string; sha256: string }>;
+      entries: Array<{ name: string; uri: string; type: string; size?: number }>;
     };
-    expect(dirResult.uri).toBe("skill://training-readiness-coach");
-    expect(dirResult.contents.some((c) => c.uri === "skill://training-readiness-coach/SKILL.md")).toBe(true);
+    expect(dirResult.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "SKILL.md",
+          uri: "skill://training-readiness-coach/SKILL.md",
+          type: "file",
+        }),
+      ])
+    );
 
     // 5. Path traversal guard
     expect(() =>

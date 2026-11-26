@@ -24,18 +24,29 @@ export interface CanonicalSkill {
   files: SkillFileManifest[];
 }
 
+export interface Sep2640SkillResource {
+  uri: string;
+  digest: string;
+  size: number;
+  mimeType: string;
+}
+
 export interface Sep2640SkillDto {
+  uri: string;
+  frontmatter: {
+    name: string;
+    description: string;
+    compatibility: string;
+  };
+  resources: Sep2640SkillResource[];
+}
+
+export interface Sep2640DirectoryEntry {
   name: string;
   uri: string;
-  description: string;
-  compatibility: string;
-  files: Array<{
-    path: string;
-    uri: string;
-    mimeType: string;
-    size: number;
-    sha256: string;
-  }>;
+  type: "file" | "directory";
+  size?: number;
+  mimeType?: string;
 }
 
 const SKILLS_ROOT = path.resolve(process.cwd(), "src", "lib", "mcp", "skills");
@@ -199,26 +210,39 @@ function isSkillAuthorized(skill: CanonicalSkill, grantedScopes: readonly string
 
 function toSkillDto(skill: CanonicalSkill): Sep2640SkillDto {
   return {
-    name: skill.name,
-    uri: `skill://${skill.slug}`,
-    description: skill.description,
-    compatibility: skill.compatibility,
-    files: skill.files.map((f) => ({
-      path: f.relativePath,
+    uri: `skill://${skill.slug}/SKILL.md`,
+    frontmatter: {
+      name: skill.name,
+      description: skill.description,
+      compatibility: skill.compatibility,
+    },
+    resources: skill.files.map((f) => ({
       uri: `skill://${skill.slug}/${f.relativePath}`,
-      mimeType: f.mimeType,
+      digest: `sha256:${f.sha256}`,
       size: f.size,
-      sha256: f.sha256,
+      mimeType: f.mimeType,
     })),
   };
 }
 
-function resolveSlug(uriOrSlug: string): string {
+function parseSkillUri(uriOrSlug: string): { slug: string; subPath: string } {
   const trimmed = uriOrSlug.trim();
-  if (trimmed.startsWith("skill://")) {
-    return trimmed.slice("skill://".length).replace(/\/+$/, "");
+  const withoutScheme = trimmed.startsWith("skill://")
+    ? trimmed.slice("skill://".length)
+    : trimmed;
+  const cleaned = withoutScheme.replace(/^\/+|\/+$/g, "");
+  const slashIdx = cleaned.indexOf("/");
+  if (slashIdx === -1) {
+    return { slug: cleaned, subPath: "" };
   }
-  return trimmed.replace(/\/+$/, "");
+  return {
+    slug: cleaned.slice(0, slashIdx),
+    subPath: cleaned.slice(slashIdx + 1),
+  };
+}
+
+function resolveSlug(uriOrSlug: string): string {
+  return parseSkillUri(uriOrSlug).slug;
 }
 
 /** Lists all SEP-2640 skills visible to the caller's granted scopes. */
@@ -299,23 +323,81 @@ export function readAuthorizedSkillFile(
   };
 }
 
-/** Reads every file in a skill directory (`resources/directory/read`) for progressive disclosure. */
+/** Lists immediate directory entries inside a skill folder (`resources/directory/read`). */
 export function readAuthorizedSkillDirectory(
   uriOrSlug: string,
   grantedScopes: readonly string[],
   skillsRoot: string = SKILLS_ROOT
 ): {
-  uri: string;
-  contents: Array<{ uri: string; mimeType: string; text: string; sha256: string; size: number }>;
+  entries: Sep2640DirectoryEntry[];
 } {
-  const dto = getAuthorizedSkill(uriOrSlug, grantedScopes, skillsRoot);
-  const contents = dto.files.map((f) =>
-    readAuthorizedSkillFile(dto.uri, f.path, grantedScopes, skillsRoot)
-  );
-  return {
-    uri: dto.uri,
-    contents,
-  };
+  const { slug, subPath } = parseSkillUri(uriOrSlug);
+  const skill = loadCanonicalSkills(skillsRoot).find((s) => s.slug === slug);
+  if (!skill) {
+    throw new McpError(ErrorCode.InvalidParams, `Skill not found: ${uriOrSlug}`);
+  }
+  if (!isSkillAuthorized(skill, grantedScopes)) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Insufficient scope to access skill: ${skill.slug}`
+    );
+  }
+
+  const cleanSubPath = subPath.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  if (
+    cleanSubPath &&
+    cleanSubPath.split("/").some((seg) => seg === ".." || seg === ".")
+  ) {
+    throw new McpError(ErrorCode.InvalidParams, "Invalid skill directory path");
+  }
+
+  const resolvedSkillRoot = path.resolve(skill.dirPath);
+  const resolvedTarget = cleanSubPath
+    ? path.resolve(resolvedSkillRoot, cleanSubPath)
+    : resolvedSkillRoot;
+
+  if (
+    resolvedTarget !== resolvedSkillRoot &&
+    !resolvedTarget.startsWith(resolvedSkillRoot + path.sep)
+  ) {
+    throw new McpError(ErrorCode.InvalidParams, "Directory path escapes skill directory");
+  }
+
+  if (!fs.existsSync(resolvedTarget) || !fs.statSync(resolvedTarget).isDirectory()) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Skill directory not found: ${uriOrSlug}`
+    );
+  }
+
+  const dirents = fs
+    .readdirSync(resolvedTarget, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const entries: Sep2640DirectoryEntry[] = [];
+  for (const dirent of dirents) {
+    const relPath = cleanSubPath ? `${cleanSubPath}/${dirent.name}` : dirent.name;
+    const entryUri = `skill://${skill.slug}/${relPath}`;
+    if (dirent.isDirectory()) {
+      entries.push({
+        name: dirent.name,
+        uri: entryUri,
+        type: "directory",
+        mimeType: "inode/directory",
+      });
+    } else if (dirent.isFile()) {
+      const stat = fs.statSync(path.join(resolvedTarget, dirent.name));
+      entries.push({
+        name: dirent.name,
+        uri: entryUri,
+        type: "file",
+        size: stat.size,
+        mimeType: inferMimeType(relPath),
+      });
+    }
+  }
+
+  return { entries };
 }
 
 const SkillsListRequestSchema = z.object({
@@ -379,7 +461,7 @@ export function registerSep2640OnMcpServer(server: McpServer, auth: McpAuthConte
       throw new McpError(ErrorCode.InvalidParams, "Either uri or name is required");
     }
     const skill = getAuthorizedSkill(target, auth.scopes);
-    return { skill } as unknown as ServerResult;
+    return skill as unknown as ServerResult;
   });
 
   server.server.setRequestHandler(ResourcesDirectoryReadRequestSchema, async (request) => {
