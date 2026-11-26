@@ -1,23 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { db } from "@/db/client";
-import { recompRecords } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
-import { formatRecordResponse } from "@/lib/recordFormat";
+import { listAllBiometricRecords } from "@/lib/services/biometricsService";
+import { isServiceError } from "@/lib/services/errors";
 
-export const GET = withAuth(async (req, { user }) => {
+export const GET = withAuth(async (_req, { user }) => {
   try {
-    const records = await db.query.recompRecords.findMany({
-      where: eq(recompRecords.userId, user.id),
-      orderBy: [asc(recompRecords.date)],
-      with: {
-        report: true,
-      },
-    });
-
-    const formatted = records.map((r) => formatRecordResponse(r, r.report));
+    const formatted = await listAllBiometricRecords(user.id);
     return NextResponse.json(formatted);
   } catch (err) {
+    if (isServiceError(err)) {
+      return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
     console.error("Get records error:", err);
     return NextResponse.json(
       { detail: "An error occurred while fetching records" },

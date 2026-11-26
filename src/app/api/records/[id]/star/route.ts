@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { db } from "@/db/client";
-import { recompRecords } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { syncAutoShareLinksForUser } from "@/lib/sharedLinkFormat";
+import { toggleBiometricRecordStar } from "@/lib/services/biometricsService";
+import { isServiceError } from "@/lib/services/errors";
 
 export const POST = withAuth(async (req, { user, params }) => {
   try {
@@ -12,44 +10,22 @@ export const POST = withAuth(async (req, { user, params }) => {
       return NextResponse.json({ detail: "Invalid record ID" }, { status: 400 });
     }
 
-    const record = await db.query.recompRecords.findFirst({
-      where: and(
-        eq(recompRecords.id, recordId),
-        eq(recompRecords.userId, user.id)
-      ),
-    });
-
-    if (!record) {
-      return NextResponse.json({ detail: "Record not found" }, { status: 404 });
-    }
-
-    let targetStarred: boolean;
+    let starred: boolean | undefined;
     try {
       const body = await req.json();
       if (typeof body?.starred === "boolean") {
-        targetStarred = body.starred;
-      } else {
-        targetStarred = !record.starred;
+        starred = body.starred;
       }
     } catch {
-      targetStarred = !record.starred;
+      // Empty body triggers toggle
     }
 
-    const [updated] = await db
-      .update(recompRecords)
-      .set({ starred: targetStarred })
-      .where(and(eq(recompRecords.id, recordId), eq(recompRecords.userId, user.id)))
-      .returning();
-
-    // Sincroniza links compartilhados com auto-share ativo
-    await syncAutoShareLinksForUser(user.id);
-
-    return NextResponse.json({
-      success: true,
-      id: recordId,
-      starred: Boolean(updated?.starred),
-    });
+    const result = await toggleBiometricRecordStar(user.id, recordId, starred);
+    return NextResponse.json(result);
   } catch (err) {
+    if (isServiceError(err)) {
+      return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
     console.error("Toggle record star error:", err);
     return NextResponse.json(
       { detail: "An error occurred while toggling star" },
