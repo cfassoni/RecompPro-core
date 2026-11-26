@@ -37,6 +37,7 @@ export interface Sep2640SkillDto {
     name: string;
     description: string;
     compatibility: string;
+    required_scopes?: string[];
   };
   resources: Sep2640SkillResource[];
 }
@@ -215,6 +216,7 @@ function toSkillDto(skill: CanonicalSkill): Sep2640SkillDto {
       name: skill.name,
       description: skill.description,
       compatibility: skill.compatibility,
+      ...(skill.requiredScopes.length > 0 ? { required_scopes: skill.requiredScopes } : {}),
     },
     resources: skill.files.map((f) => ({
       uri: `skill://${skill.slug}/${f.relativePath}`,

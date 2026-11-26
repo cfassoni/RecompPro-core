@@ -165,6 +165,10 @@ describe("MCP Phase 5: SEP-2640 Skills Extension, Dynamic .zip Bundles & Git Mar
 
     const curator = rwSkills.find((s) => s.frontmatter.name === "shared-report-curator")!;
     expect(curator.uri).toBe("skill://shared-report-curator/SKILL.md");
+    expect((curator.frontmatter as { required_scopes?: string[] }).required_scopes).toEqual([
+      "biometrics:read",
+      "shared_links:write",
+    ]);
     const skillMdEntry = curator.resources.find(
       (r) => r.uri === "skill://shared-report-curator/SKILL.md"
     )!;
