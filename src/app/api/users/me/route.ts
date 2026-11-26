@@ -1,15 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { formatUserResponse } from "@/lib/userFormat";
 import { verifyPassword } from "@/lib/auth";
 import { db } from "@/db/client";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { sendAccountDeletedEmail } from "@/lib/email";
+import { getUserProfile } from "@/lib/services/profileService";
+import { isServiceError } from "@/lib/services/errors";
 import fs from "fs";
 
-export const GET = withAuth(async (req, { user }) => {
-  return NextResponse.json(formatUserResponse(user));
+export const GET = withAuth(async (_req, { user }) => {
+  try {
+    const profile = await getUserProfile(user.id);
+    return NextResponse.json(profile);
+  } catch (err) {
+    if (isServiceError(err)) {
+      return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
+    console.error("Get current user error:", err);
+    return NextResponse.json({ detail: "An error occurred" }, { status: 500 });
+  }
 });
 
 export const DELETE = withAuth(async (req, { user }) => {

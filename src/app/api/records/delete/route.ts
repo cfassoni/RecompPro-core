@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { db } from "@/db/client";
-import { recompRecords } from "@/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { deleteBiometricRecords } from "@/lib/services/biometricsService";
+import { isServiceError } from "@/lib/services/errors";
 
 export const POST = withAuth(async (req, { user }) => {
   try {
@@ -10,33 +9,18 @@ export const POST = withAuth(async (req, { user }) => {
     const ids = body.record_ids || body.ids;
 
     if (!ids || !Array.isArray(ids)) {
-      return NextResponse.json({ detail: "record_ids or ids must be an array of numbers" }, { status: 400 });
+      return NextResponse.json(
+        { detail: "record_ids or ids must be an array of numbers" },
+        { status: 400 }
+      );
     }
 
-    const deletedIds: number[] = [];
-    const failedDeletions: { id: number; reason: string }[] = [];
-
-    for (const rawId of ids) {
-      const recId = Number(rawId);
-      const record = await db.query.recompRecords.findFirst({
-        where: eq(recompRecords.id, recId),
-      });
-
-      if (!record) {
-        failedDeletions.push({ id: recId, reason: "not_found" });
-      } else if (record.userId !== user.id) {
-        failedDeletions.push({ id: recId, reason: "unauthorized" });
-      } else {
-        await db.delete(recompRecords).where(eq(recompRecords.id, recId));
-        deletedIds.push(recId);
-      }
-    }
-
-    return NextResponse.json({
-      deleted: deletedIds,
-      failed: failedDeletions,
-    });
+    const result = await deleteBiometricRecords(user.id, ids);
+    return NextResponse.json(result);
   } catch (err) {
+    if (isServiceError(err)) {
+      return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
     console.error("Delete records error:", err);
     return NextResponse.json(
       { detail: "An error occurred while deleting records" },

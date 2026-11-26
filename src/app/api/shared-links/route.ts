@@ -1,122 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { db } from "@/db/client";
-import { sharedLinks, recompRecords } from "@/db/schema";
-import { eq, and, gt, isNull, or, inArray, desc, asc } from "drizzle-orm";
-import { hashPassword, generateSharedLinkToken } from "@/lib/auth";
-import { formatSharedLinkResponse } from "@/lib/sharedLinkFormat";
-import { formatRecordResponse } from "@/lib/recordFormat";
-import crypto from "crypto";
+import { createSharedLink, listSharedLinks } from "@/lib/services/sharedLinksService";
+import { isServiceError } from "@/lib/services/errors";
 
 export const POST = withAuth(async (req, { user }) => {
   try {
     const body = await req.json();
-    const {
-      description,
-      entry_ids,
-      password,
-      include_attachments = true,
-      expires_at,
-      auto_share_starred = false,
-    } = body;
-
-    const isAutoShare = Boolean(auto_share_starred);
-    const manualIds = Array.isArray(entry_ids) ? entry_ids.map(Number) : [];
-
-    if (!description || (!isAutoShare && manualIds.length === 0)) {
-      return NextResponse.json(
-        { detail: "Description and at least one entry_id are required" },
-        { status: 400 }
-      );
-    }
-
-    const maxActiveLinks = parseInt(process.env.MAX_ACTIVE_SHARED_LINKS || "10", 10);
-    const now = new Date();
-
-    const activeLinks = await db.query.sharedLinks.findMany({
-      where: and(
-        eq(sharedLinks.ownerId, user.id),
-        or(isNull(sharedLinks.expiresAt), gt(sharedLinks.expiresAt, now))
-      ),
-    });
-
-    if (activeLinks.length >= maxActiveLinks) {
-      return NextResponse.json(
-        {
-          detail: `You have reached the maximum limit of ${maxActiveLinks} active shared links. Please revoke or let old links expire before creating a new one.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Fetch and validate records belonging to user (union with starred if auto_share_starred)
-    let recordsWhere;
-    if (isAutoShare) {
-      if (manualIds.length > 0) {
-        recordsWhere = and(
-          eq(recompRecords.userId, user.id),
-          or(inArray(recompRecords.id, manualIds), eq(recompRecords.starred, true))
-        );
-      } else {
-        recordsWhere = and(
-          eq(recompRecords.userId, user.id),
-          eq(recompRecords.starred, true)
-        );
-      }
-    } else {
-      recordsWhere = and(
-        eq(recompRecords.userId, user.id),
-        inArray(recompRecords.id, manualIds)
-      );
-    }
-
-    const records = await db.query.recompRecords.findMany({
-      where: recordsWhere,
-      orderBy: [asc(recompRecords.date)],
-      with: {
-        report: true,
-      },
-    });
-
-    if (!isAutoShare && (!records || records.length === 0)) {
-      return NextResponse.json(
-        { detail: "No valid records selected for sharing" },
-        { status: 400 }
-      );
-    }
-
-    // Serialize snapshot entries
-    const serializedEntries = records.map((r) => {
-      const formatted = formatRecordResponse(r, r.report);
-      if (r.report && formatted.report) {
-        (formatted.report as Record<string, unknown>).file_path = r.report.filePath;
-      }
-      return formatted;
-    });
-
-    const token = generateSharedLinkToken();
-    const passwordHash = password ? await hashPassword(password) : null;
-    const linkId = crypto.randomUUID();
-
-    const [newLink] = await db
-      .insert(sharedLinks)
-      .values({
-        id: linkId,
-        ownerId: user.id,
-        token,
-        description,
-        passwordHash,
-        includeAttachments: Boolean(include_attachments),
-        autoShareStarred: isAutoShare,
-        manualEntryIds: JSON.stringify(manualIds),
-        expiresAt: expires_at ? new Date(expires_at) : null,
-        snapshotData: JSON.stringify(serializedEntries),
-        createdAt: new Date(),
-      })
-      .returning();
-
-    return NextResponse.json(formatSharedLinkResponse(newLink, []), { status: 201 });
+    const created = await createSharedLink(user.id, body);
+    return NextResponse.json(created, { status: 201 });
   } catch (err) {
+    if (isServiceError(err)) {
+      return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
     console.error("Create shared link error:", err);
     return NextResponse.json(
       { detail: "An error occurred while creating shared link" },
@@ -125,19 +20,14 @@ export const POST = withAuth(async (req, { user }) => {
   }
 });
 
-export const GET = withAuth(async (req, { user }) => {
+export const GET = withAuth(async (_req, { user }) => {
   try {
-    const links = await db.query.sharedLinks.findMany({
-      where: eq(sharedLinks.ownerId, user.id),
-      orderBy: [desc(sharedLinks.createdAt)],
-      with: {
-        auditLogs: true,
-      },
-    });
-
-    const formatted = links.map((l) => formatSharedLinkResponse(l, l.auditLogs));
+    const formatted = await listSharedLinks(user.id);
     return NextResponse.json(formatted);
   } catch (err) {
+    if (isServiceError(err)) {
+      return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
     console.error("Get shared links error:", err);
     return NextResponse.json(
       { detail: "An error occurred while fetching shared links" },
