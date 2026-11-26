@@ -385,6 +385,9 @@ describe("MCP Phase 3: Write Primitives, Audit Logging & Retention Pruning", () 
       listRes.payload.result as {
         tools: Array<{
           name: string;
+          inputSchema?: {
+            properties?: Record<string, { type?: unknown }>;
+          };
           annotations?: {
             readOnlyHint?: boolean;
             destructiveHint?: boolean;
@@ -394,6 +397,14 @@ describe("MCP Phase 3: Write Primitives, Audit Logging & Retention Pruning", () 
       }
     ).tools;
     expect(tools).toHaveLength(21);
+
+    // Ensure no tool emits array `type` (e.g. ["string", "null"]) for Gemini/OpenAPI portability
+    for (const tool of tools) {
+      const props = tool.inputSchema?.properties ?? {};
+      for (const propSchema of Object.values(props)) {
+        expect(Array.isArray(propSchema.type)).toBe(false);
+      }
+    }
 
     // 1. update_user_profile (and ensure email cannot be altered)
     const profRes = await rpc(readWriteToken, 11, "tools/call", {
@@ -486,15 +497,30 @@ describe("MCP Phase 3: Write Primitives, Audit Logging & Retention Pruning", () 
       arguments: {
         link_id: createdLink.id,
         description: "MCP Updated Report",
+        expires_at: "2027-01-01T00:00:00Z",
         auto_share_starred: true,
       },
     });
     const patchedLink = parseToolJson(updateLinkRes.payload) as {
       description: string;
+      expires_at: string | null;
       auto_share_starred: boolean;
     };
     expect(patchedLink.description).toBe("MCP Updated Report");
+    expect(patchedLink.expires_at).toContain("2027-01-01");
     expect(patchedLink.auto_share_starred).toBe(true);
+
+    const clearExpiryRes = await rpc(readWriteToken, 20, "tools/call", {
+      name: "update_shared_link",
+      arguments: {
+        link_id: createdLink.id,
+        clear_expires_at: true,
+      },
+    });
+    const clearedExpiryLink = parseToolJson(clearExpiryRes.payload) as {
+      expires_at: string | null;
+    };
+    expect(clearedExpiryLink.expires_at).toBeNull();
 
     const deleteLinkRes = await rpc(readWriteToken, 18, "tools/call", {
       name: "delete_shared_link",

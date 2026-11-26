@@ -123,9 +123,12 @@ export const sharedLinksModule: McpModule = {
         description: z.string().optional().describe("Updated description."),
         expires_at: z
           .string()
-          .nullable()
           .optional()
-          .describe("Updated ISO-8601 expiration timestamp, or null to remove expiration."),
+          .describe("Updated ISO-8601 expiration timestamp."),
+        clear_expires_at: z
+          .boolean()
+          .optional()
+          .describe("Set true to remove expiration from this shared link."),
         auto_share_starred: z
           .boolean()
           .optional()
@@ -140,7 +143,8 @@ export const sharedLinksModule: McpModule = {
         args: {
           link_id: string;
           description?: string;
-          expires_at?: string | null;
+          expires_at?: string;
+          clear_expires_at?: boolean;
           auto_share_starred?: boolean;
           password?: string;
           clear_password?: boolean;
@@ -149,7 +153,7 @@ export const sharedLinksModule: McpModule = {
       ) => {
         const updated = await updateSharedLink(ctx.auth.userId, args.link_id, {
           description: args.description,
-          expires_at: args.expires_at,
+          expires_at: args.clear_expires_at ? null : args.expires_at,
           auto_share_starred: args.auto_share_starred,
           password: args.password,
           clear_password: args.clear_password,

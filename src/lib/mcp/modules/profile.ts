@@ -37,25 +37,22 @@ export const profileModule: McpModule = {
         openWorldHint: false,
       },
       inputSchema: {
-        display_name: z.string().nullable().optional().describe("Display name."),
-        gender: z.string().nullable().optional().describe("Biological sex / gender."),
+        display_name: z.string().optional().describe("Display name."),
+        gender: z.string().optional().describe("Biological sex / gender."),
         birthday: z
           .string()
-          .nullable()
           .optional()
           .describe("Birth date in YYYY-MM-DD format."),
         height_cm: z
           .number()
           .positive()
           .max(300)
-          .nullable()
           .optional()
           .describe("Height in centimeters."),
         target_weight_kg: z
           .number()
           .positive()
           .max(500)
-          .nullable()
           .optional()
           .describe("Target weight in kilograms."),
         preferred_language: z
@@ -65,11 +62,11 @@ export const profileModule: McpModule = {
       },
       handler: async (
         args: {
-          display_name?: string | null;
-          gender?: string | null;
-          birthday?: string | null;
-          height_cm?: number | null;
-          target_weight_kg?: number | null;
+          display_name?: string;
+          gender?: string;
+          birthday?: string;
+          height_cm?: number;
+          target_weight_kg?: number;
           preferred_language?: "en" | "pt" | "es";
         },
         ctx
