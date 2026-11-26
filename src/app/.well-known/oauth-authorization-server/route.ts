@@ -25,10 +25,11 @@ export async function GET(req: NextRequest) {
       scopes_supported: [...SUPPORTED_SCOPES],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
-      token_endpoint_auth_methods_supported: ["none"],
+      token_endpoint_auth_methods_supported: ["none", "private_key_jwt"],
+      token_endpoint_auth_signing_alg_values_supported: ["RS256", "PS256", "ES256", "EdDSA"],
       code_challenge_methods_supported: ["S256"],
       client_id_metadata_document_supported: true,
-      revocation_endpoint_auth_methods_supported: ["none"],
+      revocation_endpoint_auth_methods_supported: ["none", "private_key_jwt"],
     },
     {
       status: 200,

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "recomp-pro": {
+      "type": "http",
+      "url": "${RECOMP_PRO_URL}/mcp"
+    }
+  }
+}

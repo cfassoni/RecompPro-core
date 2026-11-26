@@ -5,6 +5,12 @@ import { mcpOauthClients } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { validateRedirectUri } from "./dcr";
 
+export type OAuthTokenEndpointAuthMethod = "none" | "private_key_jwt";
+
+export interface JwksDocument {
+  keys: Record<string, unknown>[];
+}
+
 export interface CimdClientMetadata {
   client_id: string;
   client_name?: string;
@@ -12,6 +18,9 @@ export interface CimdClientMetadata {
   logo_uri?: string;
   redirect_uris: string[];
   token_endpoint_auth_method?: string;
+  token_endpoint_auth_methods_supported?: string[];
+  jwks_uri?: string;
+  jwks?: { keys?: Record<string, unknown>[] };
 }
 
 export interface ResolvedOAuthClient {
@@ -21,6 +30,10 @@ export interface ResolvedOAuthClient {
   clientUri: string | null;
   logoUri: string | null;
   redirectUris: string[];
+  tokenEndpointAuthMethod: OAuthTokenEndpointAuthMethod;
+  allowedAuthMethods: OAuthTokenEndpointAuthMethod[];
+  jwksUri: string | null;
+  jwks: JwksDocument | null;
 }
 
 export interface CimdDependencies {
@@ -30,6 +43,7 @@ export interface CimdDependencies {
 }
 
 const CIMD_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const JWKS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const CIMD_MAX_BYTES = 64 * 1024; // 64 KiB
 const CIMD_TIMEOUT_MS = 3000;
 
@@ -38,10 +52,17 @@ interface CachedCimdEntry {
   expiresAt: number;
 }
 
+interface CachedJwksEntry {
+  jwks: JwksDocument;
+  expiresAt: number;
+}
+
 const cimdMemoryCache = new Map<string, CachedCimdEntry>();
+const jwksMemoryCache = new Map<string, CachedJwksEntry>();
 
 export function clearCimdCache(): void {
   cimdMemoryCache.clear();
+  jwksMemoryCache.clear();
 }
 
 export function isCimdClientId(clientId: string): boolean {
@@ -167,7 +188,8 @@ export function isBlockedIp(rawIp: string): boolean {
   return true;
 }
 
-function isBlockedHostname(hostname: string): boolean {
+/** Returns true if hostname is local, internal, or a blocked IP literal. */
+export function isBlockedHostname(hostname: string): boolean {
   const lower = hostname.toLowerCase();
   if (
     lower === "localhost" ||
@@ -181,6 +203,95 @@ function isBlockedHostname(hostname: string): boolean {
     return isBlockedIp(lower);
   }
   return false;
+}
+
+/** Validates an inline JWK Set object `{ keys: [...] }` and returns a normalized copy or null. */
+export function normalizeInlineJwks(raw: unknown): JwksDocument | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const obj = raw as { keys?: unknown };
+  if (!Array.isArray(obj.keys) || obj.keys.length === 0) {
+    return null;
+  }
+  const validKeys = obj.keys.filter(
+    (k): k is Record<string, unknown> => Boolean(k) && typeof k === "object" && !Array.isArray(k)
+  );
+  return validKeys.length > 0 ? { keys: validKeys } : null;
+}
+
+/** Validates an HTTPS `jwks_uri` string and rejects blocked SSRF hostnames. */
+export function validateHttpsJwksUri(raw: unknown): { ok: true; uri: string } | { ok: false; error: string } {
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { ok: false, error: "jwks_uri must be a non-empty HTTPS URL" };
+  }
+  if (!isCimdClientId(raw)) {
+    return { ok: false, error: "Invalid jwks_uri: must be an HTTPS URL without credentials or fragments" };
+  }
+  const parsed = new URL(raw);
+  if (isBlockedHostname(parsed.hostname)) {
+    return { ok: false, error: "jwks_uri host is blocked by SSRF protection" };
+  }
+  return { ok: true, uri: raw };
+}
+
+/** Resolves primary and allowed token endpoint auth methods from metadata. */
+export function resolveClientAuthMethods(params: {
+  tokenEndpointAuthMethod?: unknown;
+  tokenEndpointAuthMethodsSupported?: unknown;
+  jwksUri: string | null;
+  jwks: JwksDocument | null;
+  sourceLabel?: string;
+}): {
+  tokenEndpointAuthMethod: OAuthTokenEndpointAuthMethod;
+  allowedAuthMethods: OAuthTokenEndpointAuthMethod[];
+} {
+  const {
+    tokenEndpointAuthMethod: rawMethod,
+    tokenEndpointAuthMethodsSupported: rawSupported,
+    jwksUri,
+    jwks,
+    sourceLabel = "CIMD",
+  } = params;
+
+  const supportedList = Array.isArray(rawSupported)
+    ? rawSupported.filter((m): m is string => typeof m === "string")
+    : [];
+  const hasJwks = Boolean(jwksUri || jwks);
+
+  let primaryMethod: OAuthTokenEndpointAuthMethod;
+  if (rawMethod === undefined || rawMethod === "none") {
+    primaryMethod = "none";
+  } else if (rawMethod === "private_key_jwt") {
+    if (hasJwks) {
+      primaryMethod = "private_key_jwt";
+    } else if (supportedList.includes("none")) {
+      primaryMethod = "none";
+    } else {
+      throw new Error(
+        `${sourceLabel} client using private_key_jwt must declare a valid HTTPS jwks_uri or inline jwks`
+      );
+    }
+  } else if (supportedList.includes("none")) {
+    primaryMethod = "none";
+  } else {
+    throw new Error(
+      `Unsupported token_endpoint_auth_method "${String(rawMethod).slice(0, 40)}". Supported methods: none, private_key_jwt`
+    );
+  }
+
+  const allowedSet = new Set<OAuthTokenEndpointAuthMethod>([primaryMethod]);
+  if (supportedList.includes("none")) {
+    allowedSet.add("none");
+  }
+  if (supportedList.includes("private_key_jwt") && hasJwks) {
+    allowedSet.add("private_key_jwt");
+  }
+
+  return {
+    tokenEndpointAuthMethod: primaryMethod,
+    allowedAuthMethods: Array.from(allowedSet),
+  };
 }
 
 async function readResponseUpToLimit(res: Response, maxBytes: number): Promise<string> {
@@ -217,6 +328,86 @@ async function readResponseUpToLimit(res: Response, maxBytes: number): Promise<s
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+async function fetchJsonWithSsrfProtection(
+  url: string,
+  label: string,
+  deps: CimdDependencies = {}
+): Promise<{ parsed: URL; rawText: string; data: unknown }> {
+  if (!isCimdClientId(url)) {
+    throw new Error(`Invalid ${label}: must be an HTTPS URL without credentials or fragments`);
+  }
+
+  const parsed = new URL(url);
+  if (isBlockedHostname(parsed.hostname)) {
+    throw new Error(`${label} host is blocked by SSRF protection`);
+  }
+
+  const lookupFn =
+    deps.lookup ?? ((hostname: string) => dns.lookup(hostname, { all: true }));
+  const resolvedAddrs = await lookupFn(parsed.hostname);
+  if (!resolvedAddrs || resolvedAddrs.length === 0) {
+    throw new Error(`${label} host did not resolve to any IP address`);
+  }
+
+  for (const addr of resolvedAddrs) {
+    if (isBlockedIp(addr.address)) {
+      throw new Error(`${label} resolved to a blocked IP address`);
+    }
+  }
+
+  const fetchFn = deps.fetchFn ?? fetch;
+  const res = await fetchFn(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    redirect: "error",
+    signal: AbortSignal.timeout(CIMD_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    throw new Error(`${label} fetch failed with HTTP ${res.status}`);
+  }
+
+  const rawText = await readResponseUpToLimit(res, CIMD_MAX_BYTES);
+  let data: unknown;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`${label} response is not valid JSON`);
+  }
+
+  return { parsed, rawText, data };
+}
+
+/**
+ * Fetches and caches a client's JWK Set with SSRF protection (15-minute TTL).
+ */
+export async function fetchClientJwks(
+  jwksUri: string,
+  deps: CimdDependencies = {},
+  options?: { bypassCache?: boolean }
+): Promise<JwksDocument> {
+  const nowMs = deps.now ? deps.now() : Date.now();
+  if (!options?.bypassCache) {
+    const cached = jwksMemoryCache.get(jwksUri);
+    if (cached && cached.expiresAt > nowMs) {
+      return cached.jwks;
+    }
+  }
+
+  const { data } = await fetchJsonWithSsrfProtection(jwksUri, "JWKS", deps);
+  const jwks = normalizeInlineJwks(data);
+  if (!jwks) {
+    throw new Error("JWKS response must contain a non-empty keys array");
+  }
+
+  jwksMemoryCache.set(jwksUri, {
+    jwks,
+    expiresAt: nowMs + JWKS_CACHE_TTL_MS,
+  });
+
+  return jwks;
+}
+
 /**
  * Fetches, validates (anti-SSRF + schema), caches (1h TTL), and persists a CIMD OAuth client.
  */
@@ -228,8 +419,8 @@ export async function resolveCimdClient(
     throw new Error("Invalid CIMD client_id: must be an HTTPS URL without credentials or fragments");
   }
 
-  const parsed = new URL(clientId);
-  if (isBlockedHostname(parsed.hostname)) {
+  const parsedInitial = new URL(clientId);
+  if (isBlockedHostname(parsedInitial.hostname)) {
     throw new Error("CIMD client_id host is blocked by SSRF protection");
   }
 
@@ -239,38 +430,12 @@ export async function resolveCimdClient(
     return cached.client;
   }
 
-  const lookupFn =
-    deps.lookup ?? ((hostname: string) => dns.lookup(hostname, { all: true }));
-  const resolvedAddrs = await lookupFn(parsed.hostname);
-  if (!resolvedAddrs || resolvedAddrs.length === 0) {
-    throw new Error("CIMD client_id host did not resolve to any IP address");
-  }
-
-  for (const addr of resolvedAddrs) {
-    if (isBlockedIp(addr.address)) {
-      throw new Error("CIMD client_id resolved to a blocked IP address");
-    }
-  }
-
-  const fetchFn = deps.fetchFn ?? fetch;
-  const res = await fetchFn(clientId, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    redirect: "error",
-    signal: AbortSignal.timeout(CIMD_TIMEOUT_MS),
-  });
-
-  if (!res.ok) {
-    throw new Error(`CIMD metadata fetch failed with HTTP ${res.status}`);
-  }
-
-  const rawText = await readResponseUpToLimit(res, CIMD_MAX_BYTES);
-  let meta: CimdClientMetadata;
-  try {
-    meta = JSON.parse(rawText) as CimdClientMetadata;
-  } catch {
-    throw new Error("CIMD metadata response is not valid JSON");
-  }
+  const { parsed, rawText, data } = await fetchJsonWithSsrfProtection(
+    clientId,
+    "CIMD client_id",
+    deps
+  );
+  const meta = data as CimdClientMetadata;
 
   if (!meta || meta.client_id !== clientId) {
     throw new Error("CIMD metadata client_id mismatch");
@@ -286,12 +451,24 @@ export async function resolveCimdClient(
     }
   }
 
-  if (
-    meta.token_endpoint_auth_method !== undefined &&
-    meta.token_endpoint_auth_method !== "none"
-  ) {
-    throw new Error("Only public OAuth clients (token_endpoint_auth_method: none) are supported");
+  let jwksUri: string | null = null;
+  if (meta.jwks_uri !== undefined && meta.jwks_uri !== null && meta.jwks_uri !== "") {
+    const uriCheck = validateHttpsJwksUri(meta.jwks_uri);
+    if (!uriCheck.ok) {
+      throw new Error(uriCheck.error);
+    }
+    jwksUri = uriCheck.uri;
   }
+
+  const inlineJwks = normalizeInlineJwks(meta.jwks);
+
+  const authMethodConfig = resolveClientAuthMethods({
+    tokenEndpointAuthMethod: meta.token_endpoint_auth_method,
+    tokenEndpointAuthMethodsSupported: meta.token_endpoint_auth_methods_supported,
+    jwksUri,
+    jwks: inlineJwks,
+    sourceLabel: "CIMD",
+  });
 
   const resolved: ResolvedOAuthClient = {
     clientId,
@@ -309,6 +486,10 @@ export async function resolveCimdClient(
         ? meta.logo_uri
         : null,
     redirectUris: meta.redirect_uris,
+    tokenEndpointAuthMethod: authMethodConfig.tokenEndpointAuthMethod,
+    allowedAuthMethods: authMethodConfig.allowedAuthMethods,
+    jwksUri,
+    jwks: inlineJwks,
   };
 
   const expiresAtDate = new Date(nowMs + CIMD_CACHE_TTL_MS);

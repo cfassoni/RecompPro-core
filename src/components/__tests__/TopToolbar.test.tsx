@@ -17,6 +17,7 @@ vi.mock("react-i18next", () => ({
         "toolbar.userMenu": "User profile menu",
         "toolbar.editProfile": "Edit Profile",
         "toolbar.integrations": "Integrations",
+        "toolbar.aiAssistants": "AI Assistants",
         "toolbar.logout": "Logout",
         "toolbar.switchToDark": "Switch to Dark Mode",
         "toolbar.switchToLight": "Switch to Light Mode",
@@ -79,6 +80,7 @@ describe("TopToolbar", () => {
     onLogout: vi.fn(),
     onEditProfile: vi.fn(),
     onNavigateToIntegrations: vi.fn(),
+    onNavigateToAiAssistants: vi.fn(),
     onUserUpdate: vi.fn(),
     onMobileMenuToggle: vi.fn(),
   };
@@ -135,6 +137,13 @@ describe("TopToolbar", () => {
     expect(mockProps.onNavigateToIntegrations).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("menu", { name: "User options" })).not.toBeInTheDocument();
 
+    // Reopen menu for AI Assistants shortcut test
+    fireEvent.click(avatarButton);
+    const aiBtn = screen.getByRole("menuitem", { name: "AI Assistants" });
+    fireEvent.click(aiBtn);
+    expect(mockProps.onNavigateToAiAssistants).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu", { name: "User options" })).not.toBeInTheDocument();
+
     // Reopen menu for logout test
     fireEvent.click(avatarButton);
     const logoutBtn = screen.getByRole("menuitem", { name: "Logout" });
@@ -175,5 +184,13 @@ describe("TopToolbar", () => {
     const { api } = await import("@/lib/api");
     expect(api.updateProfile).toHaveBeenCalledWith({ preferred_language: "pt" });
     expect(mockProps.onUserUpdate).toHaveBeenCalled();
+  });
+
+  it("hides AI Assistants menuitem when onNavigateToAiAssistants is omitted", () => {
+    render(<TopToolbar {...mockProps} onNavigateToAiAssistants={undefined} />);
+
+    fireEvent.click(screen.getByLabelText("User profile menu"));
+    expect(screen.getByRole("menuitem", { name: "Integrations" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "AI Assistants" })).not.toBeInTheDocument();
   });
 });

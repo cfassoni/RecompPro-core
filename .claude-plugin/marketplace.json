@@ -1,0 +1,19 @@
+{
+  "name": "recomppro-core",
+  "owner": {
+    "name": "Recomp Pro",
+    "url": "https://github.com/cfassoni/RecompPro-core"
+  },
+  "metadata": {
+    "description": "Official Recomp Pro Agent Skills & MCP Server marketplace",
+    "version": "0.8.2-rc.1"
+  },
+  "plugins": [
+    {
+      "name": "recomp-pro",
+      "source": "./plugins/recomp-pro",
+      "description": "Connects AI assistants to your self-hosted Recomp Pro body composition, strength training volume, muscle readiness, and shared report telemetry.",
+      "version": "0.8.2-rc.1"
+    }
+  ]
+}

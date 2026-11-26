@@ -62,6 +62,15 @@ export function getCanonicalOrigin(req?: Request): string {
       return `${forwardedProto}://${forwardedHost}`;
     }
 
+    const hostHeader = req.headers.get("host")?.split(",")[0]?.trim();
+    const rawForwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+    if (hostHeader && rawForwardedProto) {
+      if (envOrigin && !isLocalhostOrigin(envOrigin)) {
+        return envOrigin;
+      }
+      return `${rawForwardedProto}://${hostHeader}`;
+    }
+
     if (envOrigin && !isLocalhostOrigin(envOrigin)) {
       return envOrigin;
     }

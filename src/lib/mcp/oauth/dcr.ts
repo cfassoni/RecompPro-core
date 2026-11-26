@@ -2,6 +2,11 @@ import crypto from "crypto";
 import { db } from "@/db/client";
 import { mcpOauthClients, mcpOauthGrants } from "@/db/schema";
 import { and, eq, lt, notInArray } from "drizzle-orm";
+import {
+  normalizeInlineJwks,
+  validateHttpsJwksUri,
+  type OAuthTokenEndpointAuthMethod,
+} from "./cimd";
 
 const DCR_RATE_LIMIT_MAX = 20;
 const DCR_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -54,6 +59,8 @@ export interface DcrRequestBody {
   grant_types?: unknown;
   response_types?: unknown;
   token_endpoint_auth_method?: unknown;
+  jwks_uri?: unknown;
+  jwks?: unknown;
   scope?: unknown;
 }
 
@@ -63,10 +70,11 @@ export interface DcrRegistrationResponse {
   redirect_uris: string[];
   grant_types: string[];
   response_types: string[];
-  token_endpoint_auth_method: "none";
+  token_endpoint_auth_method: OAuthTokenEndpointAuthMethod;
   client_id_issued_at: number;
   client_uri?: string;
   logo_uri?: string;
+  jwks_uri?: string;
 }
 
 /**
@@ -94,13 +102,34 @@ export async function registerDynamicClient(
     });
   }
 
-  if (
-    body.token_endpoint_auth_method !== undefined &&
-    body.token_endpoint_auth_method !== "none"
-  ) {
+  let tokenEndpointAuthMethod: OAuthTokenEndpointAuthMethod = "none";
+  if (body.token_endpoint_auth_method !== undefined) {
+    if (
+      body.token_endpoint_auth_method !== "none" &&
+      body.token_endpoint_auth_method !== "private_key_jwt"
+    ) {
+      throw new DcrValidationError(
+        "invalid_client_metadata",
+        "Supported token_endpoint_auth_method values: 'none', 'private_key_jwt'"
+      );
+    }
+    tokenEndpointAuthMethod = body.token_endpoint_auth_method;
+  }
+
+  let validatedJwksUri: string | undefined;
+  if (body.jwks_uri !== undefined && body.jwks_uri !== null && body.jwks_uri !== "") {
+    const uriCheck = validateHttpsJwksUri(body.jwks_uri);
+    if (!uriCheck.ok) {
+      throw new DcrValidationError("invalid_client_metadata", uriCheck.error);
+    }
+    validatedJwksUri = uriCheck.uri;
+  }
+
+  const inlineJwks = normalizeInlineJwks(body.jwks);
+  if (tokenEndpointAuthMethod === "private_key_jwt" && !validatedJwksUri && !inlineJwks) {
     throw new DcrValidationError(
       "invalid_client_metadata",
-      "Only public clients (token_endpoint_auth_method='none') are supported"
+      "private_key_jwt requires a valid HTTPS jwks_uri or inline jwks with keys"
     );
   }
 
@@ -193,12 +222,13 @@ export async function registerDynamicClient(
     redirect_uris: redirectUris,
     grant_types: grantTypes,
     response_types: responseTypes,
-    token_endpoint_auth_method: "none",
+    token_endpoint_auth_method: tokenEndpointAuthMethod,
     client_id_issued_at: Math.floor(nowMs / 1000),
   };
 
   if (clientUri) response.client_uri = clientUri;
   if (logoUri) response.logo_uri = logoUri;
+  if (validatedJwksUri) response.jwks_uri = validatedJwksUri;
 
   return response;
 }

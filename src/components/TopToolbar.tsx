@@ -14,6 +14,7 @@ interface TopToolbarProps {
   onLogout: () => void;
   onEditProfile: () => void;
   onNavigateToIntegrations?: () => void;
+  onNavigateToAiAssistants?: () => void;
   onUserUpdate?: (user: User) => void;
   onMobileMenuToggle: () => void;
 }
@@ -23,6 +24,7 @@ export default function TopToolbar({
   onLogout,
   onEditProfile,
   onNavigateToIntegrations,
+  onNavigateToAiAssistants,
   onUserUpdate,
   onMobileMenuToggle,
 }: TopToolbarProps) {
@@ -58,6 +60,7 @@ export default function TopToolbar({
           onLogout={onLogout}
           onEditProfile={onEditProfile}
           onIntegrations={onNavigateToIntegrations}
+          onAiAssistants={onNavigateToAiAssistants}
         />
       </div>
     </header>

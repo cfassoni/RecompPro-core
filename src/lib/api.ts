@@ -1103,4 +1103,33 @@ export const api = {
       method: "DELETE",
     });
   },
+
+  async downloadMcpBundle(
+    target: "antigravity" | "claude" | "chatgpt"
+  ): Promise<{ blob: Blob; filename: string }> {
+    const token = getAuthToken();
+    const headers = new Headers();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    const res = await fetch(`/api/mcp/bundles/${target}.zip`, {
+      method: "GET",
+      headers,
+    });
+    if (!res.ok) {
+      let detail = `Failed to download ${target} plugin bundle`;
+      try {
+        const err = (await res.json()) as { detail?: string };
+        if (err.detail) detail = err.detail;
+      } catch {
+        // Ignore JSON parse errors
+      }
+      throw new Error(detail);
+    }
+    const blob = await res.blob();
+    return {
+      blob,
+      filename: `recomp-pro-${target}.zip`,
+    };
+  },
 };
